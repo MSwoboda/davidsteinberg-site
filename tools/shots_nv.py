@@ -6,7 +6,7 @@ secs=sys.argv[3].split(',') if len(sys.argv)>3 else ['home','services','audience
 async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch(); pg=await b.new_page(viewport={'width':width,'height':900}); errs=[]; pg.on('pageerror', lambda e: errs.append(str(e)))
-        await pg.goto(f'file:///home/claude/site-rebuild/site/index.html?theme=nouveau&mode={mode}', wait_until='load'); await pg.wait_for_timeout(600)
+        await pg.goto(f'file://./index.html?theme=nouveau&mode={mode}', wait_until='load'); await pg.wait_for_timeout(600)
         h=await pg.evaluate('document.body.scrollHeight')
         for y in range(0,h,700): await pg.evaluate(f'window.scrollTo(0,{y})'); await pg.wait_for_timeout(120)
         await pg.evaluate('window.scrollTo(0,0)'); await pg.wait_for_timeout(600)
