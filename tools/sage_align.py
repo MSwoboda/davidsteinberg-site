@@ -157,6 +157,8 @@ DEVBAR = '''<div class="dev-toolbar" role="group" aria-label="Prototype theme"><
 '''
 h = re.sub(r'<div class="dev-toolbar".*?</div>\n<style>.*?</style>\n', '', h, flags=re.S)
 h = h.replace('<script src="script.js"', DEVBAR + '<script src="script.js"', 1)  # before the script so it can bind
+import time; _v = time.strftime('%Y%m%d%H%M')  # cache-bust
+h = re.sub(r'href="styles\.css(\?v=\d+)?"', f'href="styles.css?v={_v}"', h); h = re.sub(r'src="script\.js(\?v=\d+)?"', f'src="script.js?v={_v}"', h)
 (sage / 'index.html').write_text(h)
 
 # ---------- styles + script ----------
