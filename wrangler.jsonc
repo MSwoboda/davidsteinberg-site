@@ -1,19 +1,8 @@
 {
-  // Cloudflare Worker with static assets. Connect this repo under Workers & Pages → Create → Import a repository;
-  // Cloudflare then builds and deploys on every push to main (same setup as alphadevices-site).
+  // Static site on Cloudflare Workers (assets only, no code). Connect this repo under Workers & Pages → Create →
+  // Import a repository; Cloudflare then deploys on every push to main (same setup as alphadevices-site).
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "davidsteinberg",
-  "main": "src/worker.js",
   "compatibility_date": "2026-09-01",
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "not_found_handling": "404-page",
-    "html_handling": "auto-trailing-slash",
-    "run_worker_first": true
-  },
-  "observability": { "enabled": true },
-  // Preview gate (src/worker.js): visitors must enter SITE_PASSWORD once; a signed cookie keeps them in for 30 days.
-  // To change the password edit SITE_PASSWORD here (or override it as a secret in the dashboard, which wins).
-  "vars": { "SITE_PASSWORD": "david", "SESSION_SECRET": "ds-preview-2026-cliveden-617-mt-airy" }
+  "assets": { "directory": "./public", "not_found_handling": "404-page", "html_handling": "auto-trailing-slash" }
 }

@@ -1,9 +1,8 @@
 # davidsteinberg.com — prototype site
 
-Static front-end concepts (Civic, Nouveau, Sage) for the practice website, served by a Cloudflare Worker behind a preview password.
+Static front-end concepts (Civic, Nouveau, Sage) for the practice website. Plain static files — no build step, no server code.
 
 - `public/` — the site (`index.html` + `css/`, `themes/`, `js/`, `assets/`; `sage/` is the third concept). Open `public/index.html` locally to preview.
-- `src/worker.js` — preview gate. Password and cookie secret are in `wrangler.jsonc` (`vars`); a dashboard secret of the same name overrides them.
 - `content/content.json` → `tools/build.py` → `public/js/content.js`. Edit the JSON, run the build, commit.
 - `tools/` — build, screenshot and artwork scripts (see `public/README.md`).
 
