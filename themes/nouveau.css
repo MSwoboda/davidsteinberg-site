@@ -306,3 +306,7 @@
 [data-concept="nouveau"] .footer-map .map-label { font-family: var(--font-display); font-weight: 600; }
 [data-concept="nouveau"] .footer-map:hover .map-label { background: var(--accent); color: var(--accent-ink); }
 [data-concept="nouveau"] .footer-note { border-top-color: color-mix(in srgb, var(--gold) 45%, transparent); font-style: italic; }
+
+/* light / dark toggle in the header */
+[data-concept="nouveau"] .mode-toggle { border-color: color-mix(in srgb, var(--gold) 70%, transparent); color: var(--gold); }
+[data-concept="nouveau"] .mode-toggle:hover { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold); border-color: var(--gold); }

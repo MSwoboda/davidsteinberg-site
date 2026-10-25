@@ -151,6 +151,12 @@ h = re.sub(r'(<div class="form-success" id="form-success" hidden tabindex="-1">\
 h = h.replace('>Send another request</button>', f'>{html.escape(F["success"]["again"])}</button>')
 
 h = h.replace('aria-label="Menu"><span></span><span></span></button>', 'aria-label="Menu"><span></span><span></span><span></span></button>')  # three-line hamburger
+# ---------- I. prototype toolbar (concept switcher) ----------
+DEVBAR = '''<div class="dev-toolbar" role="group" aria-label="Prototype theme"><a class="dev-link" href="../?theme=civic">Civic</a><a class="dev-link" href="../?theme=nouveau">Nouveau</a><button type="button" aria-pressed="true">Sage</button><span class="dev-sep"></span><button class="dev-mode" type="button" data-toggle-mode aria-label="Light or dark">◐</button><button class="dev-min" type="button" data-dev-min aria-label="Minimize switcher" title="Minimize">–</button><button class="dev-open" type="button" data-dev-open aria-label="Show theme switcher" title="Themes">◐</button></div>
+<style>.dev-toolbar{position:fixed;right:14px;bottom:14px;z-index:60;display:flex;gap:4px;padding:5px;background:#1d1f1c;color:#eee;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.3);font:12px system-ui,sans-serif}.dev-toolbar button,.dev-toolbar .dev-link{background:transparent;color:inherit;border:0;padding:6px 11px;border-radius:999px;cursor:pointer;text-decoration:none;font:inherit}.dev-toolbar button[aria-pressed="true"]{background:#fff;color:#111}.dev-toolbar .dev-sep{width:1px;background:#444;margin:4px 2px}.dev-toolbar .dev-min{padding:6px 9px;color:#aaa}.dev-toolbar .dev-open{display:none}.dev-toolbar.collapsed{padding:0}.dev-toolbar.collapsed>*{display:none}.dev-toolbar.collapsed .dev-open{display:block;width:34px;height:34px;padding:0;font-size:16px}@media print{.dev-toolbar{display:none}}</style>
+'''
+h = re.sub(r'<div class="dev-toolbar".*?</div>\n<style>.*?</style>\n', '', h, flags=re.S)
+h = h.replace('<script src="script.js"', DEVBAR + '<script src="script.js"', 1)  # before the script so it can bind
 (sage / 'index.html').write_text(h)
 
 # ---------- styles + script ----------
@@ -191,8 +197,19 @@ a.map img { width: 100%; height: 100%; object-fit: cover; display: block; }
     (sage / 'styles.css').write_text(css)
 
 js = (sage / 'script.js').read_text()
+js = js.replace('localStorage.setItem("ds-theme", t)', 'localStorage.setItem("ds-mode", t)').replace('localStorage.getItem("ds-theme")', 'localStorage.getItem("ds-mode")')  # same key as Civic/Nouveau
 if 'sage-res-search' not in js:
     js = js.replace('})();', '''
+  /* Prototype toolbar: light/dark + minimize */
+  var devbar = document.querySelector(".dev-toolbar");
+  if (devbar) {
+    var setDevbar = function (open) { devbar.classList.toggle("collapsed", !open); try { localStorage.setItem("ds-devbar", open ? "open" : "min"); } catch (e) { /* ignore */ } };
+    try { setDevbar(localStorage.getItem("ds-devbar") !== "min"); } catch (e) { /* ignore */ }
+    devbar.querySelector("[data-dev-min]").addEventListener("click", function () { setDevbar(false); });
+    devbar.querySelector("[data-dev-open]").addEventListener("click", function () { setDevbar(true); });
+    devbar.querySelector("[data-toggle-mode]").addEventListener("click", function () { applyTheme(currentTheme() === "dark" ? "light" : "dark"); });
+  }
+
   /* Resources: search + subject pills, first match featured */
   var resInput = document.getElementById("sage-res-search");
   if (resInput) {

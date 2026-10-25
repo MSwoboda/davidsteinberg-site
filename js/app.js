@@ -36,7 +36,13 @@
   if (!mode) mode = (root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
   setMode(mode);
   $$('.dev-toolbar [data-set-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.setTheme)));
-  $('[data-toggle-mode]').addEventListener('click', () => setMode(root.dataset.mode === 'dark' ? 'light' : 'dark'));
+  $$('[data-toggle-mode]').forEach(b => b.addEventListener('click', () => setMode(root.dataset.mode === 'dark' ? 'light' : 'dark')));
+  /* prototype toolbar: minimize / restore */
+  const devbar = $('.dev-toolbar');
+  function setDevbar(open) { devbar.classList.toggle('collapsed', !open); try { localStorage.setItem('ds-devbar', open ? 'open' : 'min'); } catch (e) {} }
+  try { setDevbar(localStorage.getItem('ds-devbar') !== 'min'); } catch (e) {}
+  $('[data-dev-min]').addEventListener('click', () => setDevbar(false));
+  $('[data-dev-open]').addEventListener('click', () => setDevbar(true));
 
   /* ---------- link map: old URLs -> pages ---------- */
   const linkMap = {};

@@ -82,10 +82,10 @@
   }
   function applyTheme(t) {
     root.setAttribute("data-theme", t);
-    try { localStorage.setItem("ds-theme", t); } catch (e) { /* ignore */ }
+    try { localStorage.setItem("ds-mode", t); } catch (e) { /* ignore */ }
   }
   try {
-    var saved = localStorage.getItem("ds-theme");
+    var saved = localStorage.getItem("ds-mode");
     if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
   } catch (e) { /* ignore */ }
   [themeBtn, document.getElementById("theme-btn-m")].forEach(function (btn) {
@@ -209,6 +209,16 @@
       result.hidden = false;
       result.focus();
     });
+  }
+
+  /* Prototype toolbar: light/dark + minimize */
+  var devbar = document.querySelector(".dev-toolbar");
+  if (devbar) {
+    var setDevbar = function (open) { devbar.classList.toggle("collapsed", !open); try { localStorage.setItem("ds-devbar", open ? "open" : "min"); } catch (e) { /* ignore */ } };
+    try { setDevbar(localStorage.getItem("ds-devbar") !== "min"); } catch (e) { /* ignore */ }
+    devbar.querySelector("[data-dev-min]").addEventListener("click", function () { setDevbar(false); });
+    devbar.querySelector("[data-dev-open]").addEventListener("click", function () { setDevbar(true); });
+    devbar.querySelector("[data-toggle-mode]").addEventListener("click", function () { applyTheme(currentTheme() === "dark" ? "light" : "dark"); });
   }
 
   /* Resources: search + subject pills, first match featured */
