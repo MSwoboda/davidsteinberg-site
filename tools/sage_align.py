@@ -151,6 +151,33 @@ h = re.sub(r'(<div class="form-success" id="form-success" hidden tabindex="-1">\
 h = h.replace('>Send another request</button>', f'>{html.escape(F["success"]["again"])}</button>')
 
 h = h.replace('aria-label="Menu"><span></span><span></span></button>', 'aria-label="Menu"><span></span><span></span><span></span></button>')  # three-line hamburger
+# ---------- J. the phone on the home page: an appointment-and-progress screen ----------
+PHONE = '''<div class="phone-screen">
+            <div class="ph-top"><span class="ph-time">9:41</span><span class="ph-dots">●●●</span></div>
+            <div class="ph-card ph-hero">
+              <div class="ph-label">Next appointment</div>
+              <div class="ph-big">Thu, Nov 5 · 6:00 PM</div>
+              <div class="ph-sub">Video · 50 minutes · with David</div>
+              <div class="ph-actions"><span class="ph-chip ph-chip-solid">Join call</span><span class="ph-chip">Reschedule</span></div>
+            </div>
+            <div class="ph-card ph-note">
+              <div class="ph-label">Last session · Oct 29</div>
+              <div class="ph-text"><strong>Worked on:</strong> listening without defending, and saying what you need early.</div>
+            </div>
+            <div class="ph-label ph-label-ink">Developing</div>
+            <div class="ph-list">
+              <div class="ph-goal"><span>Repair after an argument</span><div class="ph-bar"><i style="width:70%"></i></div></div>
+              <div class="ph-goal"><span>Asking for what you want</span><div class="ph-bar"><i style="width:45%"></i></div></div>
+              <div class="ph-goal"><span>Turning toward, not away</span><div class="ph-bar"><i style="width:25%"></i></div></div>
+            </div>
+            <div class="ph-card ph-note">
+              <div class="ph-label">This week</div>
+              <div class="ph-text">Ten-minute check-in, Tuesday evening. No fixing, only listening.</div>
+            </div>
+            <div class="ph-btn">Message David</div>
+          </div>'''
+h = re.sub(r'<div class="phone-screen">.*?<div class="ph-btn">[^<]*</div>\s*</div>', PHONE, h, count=1, flags=re.S)
+
 # ---------- I. prototype toolbar (concept switcher) ----------
 DEVBAR = '''<div class="dev-toolbar" role="group" aria-label="Prototype theme"><a class="dev-link" href="../?theme=civic">Civic</a><a class="dev-link" href="../?theme=nouveau">Nouveau</a><button type="button" aria-pressed="true">Sage</button><span class="dev-sep"></span><button class="dev-mode" type="button" data-toggle-mode aria-label="Light or dark">◐</button><button class="dev-min" type="button" data-dev-min aria-label="Minimize switcher" title="Minimize">–</button><button class="dev-open" type="button" data-dev-open aria-label="Show theme switcher" title="Themes">◐</button></div>
 <style>.dev-toolbar{position:fixed;right:14px;bottom:14px;z-index:60;display:flex;gap:4px;padding:5px;background:#1d1f1c;color:#eee;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.3);font:12px system-ui,sans-serif}.dev-toolbar button,.dev-toolbar .dev-link{background:transparent;color:inherit;border:0;padding:6px 11px;border-radius:999px;cursor:pointer;text-decoration:none;font:inherit}.dev-toolbar button[aria-pressed="true"]{background:#fff;color:#111}.dev-toolbar .dev-sep{width:1px;background:#444;margin:4px 2px}.dev-toolbar .dev-min{padding:6px 9px;color:#aaa}.dev-toolbar .dev-open{display:none}.dev-toolbar.collapsed{padding:0}.dev-toolbar.collapsed>*{display:none}.dev-toolbar.collapsed .dev-open{display:block;width:34px;height:34px;padding:0;font-size:16px}@media print{.dev-toolbar{display:none}}</style>
@@ -165,6 +192,20 @@ h = re.sub(r'href="styles\.css(\?v=\d+)?"', f'href="styles.css?v={_v}"', h); h =
 css = (sage / 'styles.css').read_text()
 if '.photo-slot' not in css:
     css += '''
+/* phone: appointment-and-progress screen */
+.phone-screen { gap: 8px; padding: 14px 14px; }
+.ph-hero { padding: 11px 14px; }\n.ph-top { font-size: 11px; }
+.ph-big { font-size: 19px; }
+.ph-actions { display: flex; gap: 6px; margin-top: 10px; }
+.ph-chip { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.6); }
+.ph-chip-solid { background: #fff; color: #2F6E66; border-color: #fff; }
+.ph-note { padding: 10px 12px; }
+.ph-note .ph-label { color: #2F6E66; }
+.ph-text { font-size: 12px; line-height: 1.35; margin-top: 3px; color: #2B3335; }
+.ph-label-ink { color: #141A1C; opacity: 1; padding-inline: 2px; }
+.ph-goal { display: grid; gap: 4px; background: #fff; border: 1px solid #E7EAE8; border-radius: 12px; padding: 7px 10px; font-weight: 600; font-size: 12px; }
+.ph-goal .ph-bar { height: 6px; }
+
 /* --- alignment with Civic (added 2026-10-23) --- */
 .photo-slot { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r); box-shadow: var(--shadow); }
 .page-hero-grid .photo-slot { max-width: 520px; justify-self: end; }

@@ -18,6 +18,7 @@
       if (t === 'nouveau' && img.dataset.srcNouveau) want = (m === 'dark' && img.dataset.srcNouveauDark) ? img.dataset.srcNouveauDark : img.dataset.srcNouveau;
       if (m === 'dark' && img.dataset.srcDark) want = img.dataset.srcDark;
       if (img.getAttribute('src') !== want) img.src = want;
+      if (img.dataset.altNouveau) { img.dataset.altDefault = img.dataset.altDefault || img.getAttribute('alt'); img.alt = t === 'nouveau' ? img.dataset.altNouveau : img.dataset.altDefault; }
     });
   }
   function setTheme(t) {

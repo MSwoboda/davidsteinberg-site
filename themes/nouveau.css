@@ -1,8 +1,9 @@
 /* Theme 2 — Nouveau. A parchment page inside a gold double-rule frame, overgrown with ivy. Every decoration is
-   either gold (the frame and its leaf flourishes, redrawn from a 1900s Art Nouveau frame) or a plant: the hero is
-   Alphonse Mucha's "Ivy" (1901); every service, essay, page and the closing has its own botanical plate from
+   either gold (the frame and its leaf flourishes, redrawn from a 1900s Art Nouveau frame) or a plant: the hero is a
+   photograph in a gold frame; every service, essay, page and the closing has its own botanical plate from
    Grasset & Verneuil's "La plante et ses applications ornementales" (1896), cut out of the paper; the ivy border is
-   composed from Verneuil's "Étude de la plante" (1903). Nothing repeats. David's photo appears only in About. */
+   composed from Verneuil's "Étude de la plante" (1903) and Thomé's Hedera helix plate (1885), toned to one olive.
+   Nothing repeats. David's photo appears only in About. */
 :root[data-concept="nouveau"] {
   --bg: #f6f1e4; --bg-alt: #efe8d6; --surface: #fbf8f0; --panel: #f1ead8; --deep: #e4dbc2;
   --ink: #2b2a22; --ink-2: #4b4838; --muted: #7c7663; --line: #d9cfb0;
@@ -13,7 +14,7 @@
   --font-body: "Alegreya", Georgia, serif;
   --radius: 3px; --max: 1180px;
   --frame-x: 150px; --frame-top: 0px; --frame-bottom: 34px; --frame-y: 0px; --header-h: 70px;
-  --ivy-w: 190px; --ivy-h: 150px; --gold-w: 64px; --gold-inset: 14px;
+  --ivy-w: 277px; --ivy-h: 219px; --gold-w: 64px; --gold-inset: 14px;
 }
 :root[data-concept="nouveau"][data-mode="dark"] {
   --bg: #1c231f; --bg-alt: #222a25; --surface: #28322b; --panel: #252e28; --deep: #313c34;
@@ -22,12 +23,12 @@
   --accent: #b7c49c; --accent-ink: #1c231f;
   --band: #2d3a30; --band-ink: #ede5cf; --band-ink-2: #cfc6ab; --band-muted: #9aa38a; --band-surface: #1c231f;
 }
-@media (max-width: 1300px) { :root[data-concept="nouveau"] { --frame-x: 118px; --ivy-w: 150px; --ivy-h: 120px; } }
-@media (max-width: 1000px) { :root[data-concept="nouveau"] { --frame-x: 80px; --ivy-w: 110px; --ivy-h: 90px; --gold-w: 52px; } }
+@media (max-width: 1300px) { :root[data-concept="nouveau"] { --frame-x: 118px; --ivy-w: 219px; --ivy-h: 175px; } }
+@media (max-width: 1000px) { :root[data-concept="nouveau"] { --frame-x: 80px; --ivy-w: 160px; --ivy-h: 131px; --gold-w: 52px; } }
 @media (max-width: 700px) { :root[data-concept="nouveau"] { --frame-x: 24px; --frame-bottom: 22px; --gold-w: 40px; --gold-inset: 6px; } }
 [data-concept="nouveau"] body { font-size: 17.5px; line-height: 1.6; padding-top: 0; padding-bottom: var(--frame-bottom);
-  background-image: url(../assets/civic/paper-2.jpg); background-size: 680px; background-blend-mode: soft-light; }
-[data-concept="nouveau"][data-mode="dark"] body { background-blend-mode: overlay; }
+  background-image: url(../assets/nouveau/paper.jpg); background-size: 640px; background-blend-mode: soft-light; }
+[data-concept="nouveau"][data-mode="dark"] body { background-blend-mode: soft-light; }
 
 /* ---- the frame: part of the page, not the window. It runs the full height of the document on all four sides and
    scrolls with the content, behind it: a gold double rule under the header, ivy climbing all the way round. ---- */
@@ -38,6 +39,10 @@
   border-image: url(../assets/nouveau/frame.svg) 90 / var(--gold-w) stretch; opacity: .9; }
 [data-concept="nouveau"][data-mode="dark"] .frame::before { filter: brightness(1.25) saturate(1.1); }
 [data-concept="nouveau"] .frame-left, [data-concept="nouveau"] .frame-right, [data-concept="nouveau"] .frame-top, [data-concept="nouveau"] .frame-bottom { position: absolute; display: block; opacity: .78; }
+[data-concept="nouveau"] .frame-left, [data-concept="nouveau"] .frame-right { -webkit-mask-image: linear-gradient(to right, #000 52%, transparent 100%); mask-image: linear-gradient(to right, #000 52%, transparent 100%); }
+[data-concept="nouveau"] .frame-right { -webkit-mask-image: linear-gradient(to left, #000 52%, transparent 100%); mask-image: linear-gradient(to left, #000 52%, transparent 100%); }
+[data-concept="nouveau"] .frame-top { -webkit-mask-image: linear-gradient(to bottom, #000 52%, transparent 100%); mask-image: linear-gradient(to bottom, #000 52%, transparent 100%); }
+[data-concept="nouveau"] .frame-bottom { -webkit-mask-image: linear-gradient(to top, #000 52%, transparent 100%); mask-image: linear-gradient(to top, #000 52%, transparent 100%); }
 [data-concept="nouveau"] .frame-top { left: 0; right: 0; top: 0; height: var(--ivy-h); background: url(../assets/nouveau/ivy-top.webp) -140px 0 / auto 100% repeat-x; }
 [data-concept="nouveau"] .frame-bottom { left: 0; right: 0; bottom: 0; height: var(--ivy-h); background: url(../assets/nouveau/ivy-bottom.webp) right -260px bottom / auto 100% repeat-x; }
 [data-concept="nouveau"] .frame-left { left: 0; top: 0; bottom: 0; width: var(--ivy-w); background: url(../assets/nouveau/ivy-left.webp) 0 0 / 100% auto repeat-y; }
@@ -100,7 +105,7 @@
 [data-concept="nouveau"] main > section + section { border-top: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
 [data-concept="nouveau"] main > section#page, [data-concept="nouveau"] main > section#resources { border-top: 0; }
 
-/* ---- hero: title left, Mucha's Ivy in a gold frame right ---- */
+/* ---- hero: title left, a photograph in a gold frame right ---- */
 [data-concept="nouveau"] .hero { padding-top: clamp(48px, 6vw, 88px); padding-bottom: clamp(40px, 6vw, 80px); }
 [data-concept="nouveau"] .hero-inner { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
 [data-concept="nouveau"] .hero-kicker { font-family: var(--font-display); font-style: italic; font-size: 1.25rem; color: var(--gold-3); letter-spacing: 0; text-transform: none; }
@@ -110,7 +115,7 @@
 [data-concept="nouveau"] .hero-note { font-style: italic; color: var(--muted); margin: 0; }
 [data-concept="nouveau"] .hero-deco { display: none; }
 [data-concept="nouveau"] .hero-media { max-width: none; margin: 0; padding: 18px; border: 14px solid transparent; border-image: url(../assets/nouveau/frame.svg) 90 / 44px stretch; background: var(--panel); }
-[data-concept="nouveau"] .hero-media img { display: block; width: 100%; aspect-ratio: 1356 / 1780; object-fit: cover; border-radius: 0; box-shadow: 0 1px 0 var(--gold), 0 0 0 1px var(--line); }
+[data-concept="nouveau"] .hero-media img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 0; box-shadow: 0 1px 0 var(--gold), 0 0 0 1px var(--line); }
 [data-concept="nouveau"][data-mode="dark"] .hero-media img { filter: brightness(.9) contrast(1.02); }
 @media (max-width: 800px) { [data-concept="nouveau"] .hero-inner { grid-template-columns: 1fr; gap: 28px; } [data-concept="nouveau"] .hero-media { max-width: 420px; margin-inline: auto; } }
 
@@ -310,3 +315,11 @@
 /* light / dark toggle in the header */
 [data-concept="nouveau"] .mode-toggle { border-color: color-mix(in srgb, var(--gold) 70%, transparent); color: var(--gold); }
 [data-concept="nouveau"] .mode-toggle:hover { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold); border-color: var(--gold); }
+
+
+/* ---- paper on every raised panel too (declared last so it survives the background shorthands above) ---- */
+[data-concept="nouveau"] .hero-media, [data-concept="nouveau"] .card.article, [data-concept="nouveau"] .way, [data-concept="nouveau"] .pull-quote, [data-concept="nouveau"] .contact, [data-concept="nouveau"] .consult-form, [data-concept="nouveau"] .price-card, [data-concept="nouveau"] .quiz fieldset, [data-concept="nouveau"] .page-body ol.modules li, [data-concept="nouveau"] .explorer-detail { background-image: url(../assets/nouveau/paper.jpg); background-size: 520px; background-position: 160px 90px; background-blend-mode: soft-light; }
+[data-concept="nouveau"] .card.article .cover { background-image: none; }
+[data-concept="nouveau"][data-mode="dark"] .hero-media, [data-concept="nouveau"][data-mode="dark"] .card.article, [data-concept="nouveau"][data-mode="dark"] .way, [data-concept="nouveau"][data-mode="dark"] .pull-quote, [data-concept="nouveau"][data-mode="dark"] .contact, [data-concept="nouveau"][data-mode="dark"] .consult-form, [data-concept="nouveau"][data-mode="dark"] .price-card, [data-concept="nouveau"][data-mode="dark"] .quiz fieldset, [data-concept="nouveau"][data-mode="dark"] .page-body ol.modules li, [data-concept="nouveau"][data-mode="dark"] .explorer-detail { background-blend-mode: overlay; }
+@media (max-width: 380px) { [data-concept="nouveau"] .site-header { gap: 8px; } [data-concept="nouveau"] .brand { font-size: 1.1rem; gap: 8px; } [data-concept="nouveau"] .brand-mark { width: 24px; height: 24px; } [data-concept="nouveau"] .mode-toggle { width: 36px; height: 36px; } }
+@media (max-width: 560px) { [data-concept="nouveau"] .insurance-grid li { font-size: 1.05rem; padding: 16px 10px; overflow-wrap: anywhere; } }

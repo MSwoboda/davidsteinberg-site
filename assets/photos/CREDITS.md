@@ -15,7 +15,6 @@ stretch-mat.jpg        https://unsplash.com/photos/1767611102585-baf80e9be291
 street-couple.jpg      https://unsplash.com/photos/1598286987849-41663a539ff9
 
 ## Nouveau theme artwork (public domain)
-- Hero: Alphonse Mucha, *Ivy* (1901) — Wikimedia Commons.
 - Botanical plates (assets/nouveau/plates): Eugène Grasset (ed.), M. P. Verneuil, E. Hervegh, J. Milesi, A. Martin, M. Gaudin, *La plante et ses applications ornementales* (Paris, 1896) — Wikimedia Commons (INHA scans). Cut out of the paper; one plate per subject.
-- Ivy border pieces: M. P. Verneuil, *Étude de la plante* (1903), fig. 146 Lierre — Wikimedia Commons.
+- Ivy border pieces: M. P. Verneuil, *Étude de la plante* (1903), fig. 146 Lierre; and Otto Wilhelm Thomé, *Flora von Deutschland, Österreich und der Schweiz* (1885), Hedera helix, toned to the Verneuil olive — both Wikimedia Commons, public domain.
 - Gold frame and flourish: redrawn from "Art Nouveau frame.svg" (Wikimedia Commons, public domain).

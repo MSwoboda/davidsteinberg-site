@@ -366,6 +366,21 @@ img.avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 @media (min-width: 800px) { .toast { bottom: 2rem; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* phone: appointment-and-progress screen */
+.phone-screen { gap: 8px; padding: 14px 14px; }
+.ph-hero { padding: 11px 14px; }
+.ph-top { font-size: 11px; }
+.ph-big { font-size: 19px; }
+.ph-actions { display: flex; gap: 6px; margin-top: 10px; }
+.ph-chip { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.6); }
+.ph-chip-solid { background: #fff; color: #2F6E66; border-color: #fff; }
+.ph-note { padding: 10px 12px; }
+.ph-note .ph-label { color: #2F6E66; }
+.ph-text { font-size: 12px; line-height: 1.35; margin-top: 3px; color: #2B3335; }
+.ph-label-ink { color: #141A1C; opacity: 1; padding-inline: 2px; }
+.ph-goal { display: grid; gap: 4px; background: #fff; border: 1px solid #E7EAE8; border-radius: 12px; padding: 7px 10px; font-weight: 600; font-size: 12px; }
+.ph-goal .ph-bar { height: 6px; }
+
 /* --- alignment with Civic (added 2026-10-23) --- */
 .photo-slot { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r); box-shadow: var(--shadow); }
 .page-hero-grid .photo-slot { max-width: 520px; justify-self: end; }

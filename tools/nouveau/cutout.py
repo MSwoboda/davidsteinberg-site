@@ -9,7 +9,7 @@ from scipy import ndimage as ndi
 RAW = '/home/claude/site-rebuild/tools/nouveau/raw/'
 OUT = '/home/claude/site-rebuild/tools/nouveau/cut/'
 
-def cutout(name, box=None, keep=1, lo=16, hi=48, min_frac=0.015, out=None, bg=None, fill=False, hole_d=15):
+def cutout(name, box=None, keep=1, lo=16, hi=48, min_frac=0.015, out=None, bg=None, fill=False, hole_d=15, strip_rules=True):
     im = Image.open(RAW + name + '.png').convert('RGB')
     if box: im = im.crop(box)
     a = np.asarray(im).astype(np.float32)
@@ -26,7 +26,7 @@ def cutout(name, box=None, keep=1, lo=16, hi=48, min_frac=0.015, out=None, bg=No
     dark0 = alpha > 0.5
     thin0 = dark0 & ~ndi.binary_opening(dark0, structure=np.ones((5, 5)))
     rules = ndi.binary_opening(thin0, structure=np.ones((1, 70))) | ndi.binary_opening(thin0, structure=np.ones((70, 1)))
-    rules = ndi.binary_dilation(rules, iterations=3)
+    rules = ndi.binary_dilation(rules, iterations=3) if strip_rules else np.zeros_like(dark0)
     alpha[rules] = 0; a[rules] = bg
     if fill:
         # outlined lithograph: fill closed outlines so pale interiors stay opaque
@@ -47,7 +47,7 @@ def cutout(name, box=None, keep=1, lo=16, hi=48, min_frac=0.015, out=None, bg=No
     thin = dark & ~thick
     hl = ndi.binary_opening(thin, structure=np.ones((1, 70)))
     vl = ndi.binary_opening(thin, structure=np.ones((70, 1)))
-    lines = ndi.binary_dilation(hl | vl, iterations=3)
+    lines = ndi.binary_dilation(hl | vl, iterations=3) if strip_rules else np.zeros_like(dark)
     alpha[lines] = 0
     # drop faint paper grain
     mask = alpha > 0.5
