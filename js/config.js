@@ -2,5 +2,5 @@
    (https://us-east4-<project>.cloudfunctions.net/consultationRequest). Leave empty while prototyping:
    the forms then show the thank-you panel without sending anything. */
 window.SITE_CONFIG = {
-  formEndpoint: ''
+  formEndpoint: 'https://us-east4-davidsteinberg-site.cloudfunctions.net/consultationRequest'
 };
