@@ -20,16 +20,15 @@ form (browser) ──POST JSON──▶ consultationRequest (Cloud Function, us-
    # point at your project id (replace the id if you named it differently)
    sed -i '' 's/davidsteinberg-site/YOUR_PROJECT_ID/' .firebaserc     # macOS sed; on Linux drop the ''
    cd functions && npm install && npm test && cd ..
-   firebase functions:secrets:set GMAIL_USER           # michswo@gmail.com
-   firebase functions:secrets:set GMAIL_APP_PASSWORD   # the 16-character app password
-   firebase functions:secrets:set NOTIFY_TO            # michswo@gmail.com  (comma-separated for several)
+   # functions/.env holds GMAIL_USER and NOTIFY_TO (plain text, not secret) — edit if the addresses change
+   firebase functions:secrets:set GMAIL_APP_PASSWORD   # the 16-character app password (or create the secret in the Cloud Console → Secret Manager)
    firebase deploy --only functions,firestore
    ```
    The deploy prints the function URL: `https://us-east4-YOUR_PROJECT_ID.cloudfunctions.net/consultationRequest`.
 5. **Tell the site.** Put that URL in `js/config.js` (`formEndpoint`), commit, push. Both forms use it. While it is empty the forms run in prototype mode: they show the thank-you panel and send nothing.
 6. **Test** by sending a request from the live site. The email arrives from "davidsteinberg.com <michswo@gmail.com>" with Reply-To set to the visitor, and the request appears in the Firebase console under Firestore → `requests`.
 
-To move to David's address later: `firebase functions:secrets:set NOTIFY_TO` with his email (and, if he should be the sender, his own app password in `GMAIL_USER` / `GMAIL_APP_PASSWORD`), then `firebase deploy --only functions`.
+To move to David's address later: change `NOTIFY_TO` in `functions/.env` (and, if he should be the sender, `GMAIL_USER` plus his own app password in the `GMAIL_APP_PASSWORD` secret), then `firebase deploy --only functions`.
 
 ## What the function does with a submission
 
@@ -48,7 +47,7 @@ To move to David's address later: `firebase functions:secrets:set NOTIFY_TO` wit
 
 ## Local run (optional)
 
-`cd backend && firebase emulators:start --only functions,firestore` with a `functions/.secret.local` file holding the three secrets, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
+`cd backend && firebase emulators:start --only functions,firestore` with a `functions/.secret.local` file holding `GMAIL_APP_PASSWORD`, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
 
 ## Next step: the staff view and the client portal
 

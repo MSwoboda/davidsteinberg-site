@@ -1,12 +1,13 @@
 'use strict';
 /* HTTPS endpoint: POST /consultationRequest with the form as JSON.
    Stores the request in Firestore (collection "requests") and emails the practice through Gmail.
-   Secrets (set once with `firebase functions:secrets:set NAME`):
-     GMAIL_USER          the Gmail / Workspace address that sends (needs 2-step verification on)
-     GMAIL_APP_PASSWORD  an app password for that account (Google Account → Security → App passwords)
-     NOTIFY_TO           where requests go; comma-separated for several; defaults to GMAIL_USER */
+   Configuration:
+     functions/.env      GMAIL_USER (the Gmail / Workspace address that sends; 2-step verification on)
+                         NOTIFY_TO  (where requests go; comma-separated for several; defaults to GMAIL_USER)
+     secret              GMAIL_APP_PASSWORD — an app password for GMAIL_USER (Google Account → Security → App passwords),
+                         stored in Secret Manager: `firebase functions:secrets:set GMAIL_APP_PASSWORD` or the Cloud Console */
 const { onRequest } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
+const { defineSecret, defineString } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
@@ -15,11 +16,11 @@ const { handle } = require('./lib/handle');
 setGlobalOptions({ region: 'us-east4', maxInstances: 3, memory: '256MiB', timeoutSeconds: 30 });
 admin.initializeApp();
 
-const GMAIL_USER = defineSecret('GMAIL_USER');
+const GMAIL_USER = defineString('GMAIL_USER');
+const NOTIFY_TO = defineString('NOTIFY_TO', { default: '' });
 const GMAIL_APP_PASSWORD = defineSecret('GMAIL_APP_PASSWORD');
-const NOTIFY_TO = defineSecret('NOTIFY_TO');
 
-exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_USER, GMAIL_APP_PASSWORD, NOTIFY_TO] }, async (req, res) => {
+exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWORD] }, async (req, res) => {
   const user = GMAIL_USER.value();
   const transport = nodemailer.createTransport({ service: 'gmail', auth: { user, pass: GMAIL_APP_PASSWORD.value() } });
   const to = (NOTIFY_TO.value() || user).split(',').map(s => s.trim()).filter(Boolean);
