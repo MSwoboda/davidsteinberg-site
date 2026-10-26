@@ -335,7 +335,7 @@
   toggle.addEventListener('click', () => { const open = toggle.getAttribute('aria-expanded') !== 'true'; toggle.setAttribute('aria-expanded', open); document.body.classList.toggle('nav-open', open); });
   mnav.addEventListener('click', e => { if (e.target.tagName === 'A') { toggle.setAttribute('aria-expanded', 'false'); document.body.classList.remove('nav-open'); } });
 
-  /* ---------- form (prototype: validates and shows the thank-you state; no backend yet) ---------- */
+  /* ---------- form: validates, then posts to SITE_CONFIG.formEndpoint via js/request.js ---------- */
   const form = $('.consult-form[data-render="form"]'), success = $('.form-success');
   const setInvalid = (el, bad) => { const wrap = el.closest('.field'); if (wrap) wrap.classList.toggle('invalid', bad); el.setAttribute('aria-invalid', bad ? 'true' : 'false'); };
   form.addEventListener('submit', e => {
@@ -349,9 +349,18 @@
     $$('[data-required-group]', form).forEach(g => { const any = $('input:checked', g); g.classList.toggle('invalid', !any); if (!any) { ok = false; first = first || $('input', g); } });
     const status = $('.form-status', form);
     if (!ok) { status.textContent = 'Please complete the highlighted fields.'; first.focus(); return; }
-    status.textContent = '';
-    $('[data-render="success-title"]', success).textContent = C.consultation_form.success.title.replace('{name}', form.elements.name.value.trim().split(/\s+/)[0]);
-    form.hidden = true; success.hidden = false; success.focus();
+    status.textContent = ''; status.classList.remove('is-error');
+    const btn = $('[data-render="submit"]', form), label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Sending…';
+    window.sendConsultRequest(form).then(() => {
+      $('[data-render="success-title"]', success).textContent = C.consultation_form.success.title.replace('{name}', form.elements.name.value.trim().split(/\s+/)[0]);
+      form.hidden = true; success.hidden = false; success.focus();
+    }).catch(err => {
+      status.classList.add('is-error');
+      status.textContent = (err && err.code === 'fields') ? 'Please check the highlighted fields.'
+        : (err && err.code === 'rate') ? 'Too many requests from this connection. Please call 215-253-4473.'
+        : 'Your request could not be sent. Please try again, or call 215-253-4473.';
+    }).finally(() => { btn.disabled = false; btn.textContent = label; });
   });
   form.addEventListener('input', e => { const el = e.target; if (el.hasAttribute('required')) setInvalid(el, false); const g = el.closest('[data-required-group]'); if (g) g.classList.remove('invalid'); });
   $('[data-render="again"]', success).addEventListener('click', () => { form.reset(); success.hidden = true; form.hidden = false; form.elements.name.focus(); });

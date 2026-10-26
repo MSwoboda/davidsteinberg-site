@@ -392,3 +392,8 @@ body.page-open .site-header { position: static; }
 .form-success h3 { font-size: 1.8rem; margin: 0 0 8px; }
 .form-success p { margin: 0 0 16px; color: var(--ink-2); }
 .form-success .button { justify-self: start; }
+
+/* honeypot: off-screen, never shown; a filled value marks a bot */
+.hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.consult-form button[disabled] { opacity: .7; cursor: progress; }
+.form-status.is-error { color: var(--danger, #b3261e); }

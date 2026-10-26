@@ -366,6 +366,9 @@ img.avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 @media (min-width: 800px) { .toast { bottom: 2rem; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* honeypot and sending state */
+.hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.btn[disabled] { opacity: .7; cursor: progress; }
 /* phone: appointment-and-progress screen */
 .phone-screen { gap: 8px; padding: 14px 14px; }
 .ph-hero { padding: 11px 14px; }

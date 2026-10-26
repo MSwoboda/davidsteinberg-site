@@ -1,0 +1,6 @@
+/* Site configuration. formEndpoint: the URL of the deployed consultationRequest function
+   (https://us-east4-<project>.cloudfunctions.net/consultationRequest). Leave empty while prototyping:
+   the forms then show the thank-you panel without sending anything. */
+window.SITE_CONFIG = {
+  formEndpoint: ''
+};

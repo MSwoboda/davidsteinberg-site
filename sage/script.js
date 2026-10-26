@@ -154,14 +154,20 @@
         return;
       }
       var name = form.querySelector("#f-name").value.trim();
-      form.hidden = true;
-      if (success) {
-        var who = document.getElementById("success-name");
-        if (who) who.textContent = name;
-        success.hidden = false;
-        success.focus();
-      }
-      window.scrollTo(0, 0);
+      var btn = form.querySelector('button[type="submit"]'); var label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Sending…";
+      window.sendConsultRequest(form).then(function () {
+        form.hidden = true;
+        if (success) {
+          var who = document.getElementById("success-name");
+          if (who) who.textContent = name;
+          success.hidden = false;
+          success.focus();
+        }
+        window.scrollTo(0, 0);
+      }).catch(function (err) {
+        showToast(err && err.code === "rate" ? "Too many requests from this connection. Please call 215-253-4473." : "Your request could not be sent. Please try again, or call 215-253-4473.");
+      }).finally(function () { btn.disabled = false; btn.textContent = label; });
     });
     form.addEventListener("input", function (ev) {
       var f = ev.target;

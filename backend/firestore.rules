@@ -1,0 +1,8 @@
+rules_version = '2';
+// No browser or app client reads or writes anything. Only the Cloud Function (Admin SDK) touches Firestore.
+// When the staff dashboard arrives, it gets its own rule here, scoped to signed-in staff accounts.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+  }
+}
