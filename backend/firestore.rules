@@ -1,8 +1,61 @@
 rules_version = '2';
-// No browser or app client reads or writes anything. Only the Cloud Function (Admin SDK) touches Firestore.
-// When the staff dashboard arrives, it gets its own rule here, scoped to signed-in staff accounts.
+// Roles: a client is any signed-in Google account; staff carry the custom claim `staff: true`, set by the
+// bootstrap function from the STAFF_EMAILS list. Nothing is readable or writable without signing in.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function staff() { return signedIn() && request.auth.token.staff == true; }
+    function me(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // consultation requests from the public form: written by the function only, worked by staff
+    match /requests/{id} {
+      allow read: if staff();
+      allow update: if staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'notes', 'updatedAt', 'updatedBy']);
+      allow create, delete: if false;
+    }
+
+    // client profiles: pseudonym, status, couple, assigned questionnaires. Created by the function.
+    match /clients/{uid} {
+      allow read: if me(uid) || staff();
+      allow update: if staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'coupleId', 'assigned', 'note', 'nextAppointment', 'focus', 'updatedAt']);
+      allow create, delete: if false;
+    }
+    match /aliases/{slug} { allow read, write: if false; }
+
+    match /couples/{id} {
+      allow read: if staff() || (signedIn() && request.auth.uid in resource.data.members);
+      allow create, update, delete: if staff();
+    }
+
+    // questionnaire definitions: clients read what exists, staff manage
+    match /questionnaires/{id} {
+      allow read: if signedIn();
+      allow write: if staff();
+    }
+
+    // answers: a client writes their own, staff read everything
+    match /responses/{id} {
+      allow read: if staff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && id == request.auth.uid + '_' + request.resource.data.qid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && resource.data.status != 'submitted';
+      allow delete: if false;
+    }
+
+    // messages between a client and the practice (phase 2 UI; rules ready)
+    match /threads/{uid}/messages/{mid} {
+      allow read: if me(uid) || staff();
+      allow create: if (me(uid) || staff()) && request.resource.data.from == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // traffic counters: written by the pageHit function, read by staff
+    match /traffic/{day} {
+      allow read: if staff();
+      allow write: if false;
+      match /visitors/{v} { allow read, write: if false; }
+    }
+
+    match /audit/{id} { allow read: if staff(); allow write: if false; }
     match /{document=**} { allow read, write: if false; }
   }
 }

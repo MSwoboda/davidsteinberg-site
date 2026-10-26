@@ -1,0 +1,13 @@
+{
+  "id": "short-id-no-spaces",
+  "title": "Questionnaire title shown to the client",
+  "kind": "couples",
+  "instructions": "One or two sentences shown above the items.",
+  "scale": { "type": "likert", "labels": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "values": [1, 2, 3, 4] },
+  "items": [
+    { "id": "1", "text": "Item text. Use type \"yesno\" or \"text\" on an item to override the scale." },
+    { "id": "2", "text": "A yes / no item", "type": "yesno" },
+    { "id": "3", "text": "A free-text item", "type": "text" }
+  ],
+  "scoring": { "method": "sum", "reverse": [], "bands": [ { "max": 6, "label": "Low" }, { "max": 12, "label": "High" } ] }
+}

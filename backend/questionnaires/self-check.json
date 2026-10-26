@@ -1,0 +1,16 @@
+{
+  "id": "self-check",
+  "title": "Toward or away? A six-item self-check",
+  "kind": "self",
+  "instructions": "Answer for the last two weeks. There are no right answers; this is a snapshot for you and David to look at together.",
+  "scale": { "type": "likert", "labels": ["Rarely", "Sometimes", "Often", "Almost always"], "values": [1, 2, 3, 4] },
+  "items": [
+    { "id": "q1", "text": "When my partner is upset, I move closer rather than pull back." },
+    { "id": "q2", "text": "I can say what I want without turning it into a criticism." },
+    { "id": "q3", "text": "I can hear my partner's hurt without defending myself." },
+    { "id": "q4", "text": "After a fight, one of us reaches out to repair within a day." },
+    { "id": "q5", "text": "I tell my partner something I appreciate about them." },
+    { "id": "q6", "text": "I feel like myself when I am with my partner." }
+  ],
+  "scoring": { "method": "sum", "bands": [ { "max": 11, "label": "Mostly moving away right now" }, { "max": 17, "label": "Mixed" }, { "max": 24, "label": "Mostly moving toward each other" } ] }
+}

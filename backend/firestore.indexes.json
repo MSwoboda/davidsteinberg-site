@@ -1,1 +1,7 @@
-{ "indexes": [], "fieldOverrides": [] }
+{
+  "indexes": [
+    { "collectionGroup": "requests", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "received", "order": "DESCENDING" } ] },
+    { "collectionGroup": "responses", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "uid", "order": "ASCENDING" }, { "fieldPath": "submittedAt", "order": "DESCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}
