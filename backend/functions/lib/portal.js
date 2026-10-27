@@ -54,7 +54,7 @@ async function recordHit(hit, deps) {
   const concept = ['civic', 'nouveau', 'sage'].includes(hit.concept) ? hit.concept : 'other';
   let ref = '';
   try { ref = hit.referrer ? new URL(hit.referrer).hostname.replace(/^www\./, '') : ''; } catch (e) { ref = ''; }
-  if (ref && /(^|\.)(mswoboda\.github\.io|davidsteinberg\.com|localhost)$/.test(ref)) ref = '';
+  if (ref && /(^|\.)(mswoboda\.github\.io|davidsteinberg\.com|davidsteinberg-site\.web\.app|davidsteinberg-site\.firebaseapp\.com|localhost)$/.test(ref)) ref = '';
   const device = classifyDevice(hit.userAgent);
   const visitor = deps.hash(`${hit.ip}|${hit.userAgent}|${day}`);
   const dayRef = deps.db.collection('traffic').doc(day);
