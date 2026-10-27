@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Practice dashboard — David Steinberg, PhD, LCSW</title>
-<link rel="stylesheet" href="../app/ui.css">
-<script src="../app/firebase-config.js"></script>
-<script src="../app/api.js"></script>
+<link rel="stylesheet" href="../app/ui.css?v=202610271451">
+<script src="../app/firebase-config.js?v=202610271451"></script>
+<script src="../js/content.js?v=202610271451"></script>
+<script src="../app/api.js?v=202610271451"></script>
 </head>
 <body>
 <header class="topbar">
@@ -36,7 +37,8 @@
       <a href="#overview" data-nav="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Overview</a>
       <a href="#requests" data-nav="requests"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z"/></svg>Requests<span class="count" data-count-new hidden></span></a>
       <a href="#clients" data-nav="clients"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6"/><circle cx="17" cy="9" r="3"/><path d="M22 19c0-3-2-5-5-5"/></svg>Clients</a>
-      <a href="#questionnaires" data-nav="questionnaires"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Questionnaires</a>
+      <a href="#assessments" data-nav="assessments"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Assessments</a>
+      <a href="#content" data-nav="content"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Site content</a>
       <a href="#traffic" data-nav="traffic"><svg viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-6 4 3 6-9"/></svg>Traffic</a>
       <a href="#audit" data-nav="audit"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Audit log</a>
     </nav>
@@ -45,6 +47,8 @@
   <div class="drawer" id="drawer"><div class="scrim" data-close></div><div class="panel"><button class="btn sm close" data-close type="button">Close</button><div id="drawer-body"></div></div></div>
 </template>
 
-<script src="admin.js"></script>
+<script src="admin.js?v=202610271451"></script>
+<script src="assess.js?v=202610271451"></script>
+<script src="content.js?v=202610271451"></script>
 </body>
 </html>

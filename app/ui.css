@@ -112,3 +112,46 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chart { width: 100%; height: auto; display: block; } .chart .bar { fill: var(--accent); opacity: .85; } .chart .bar.uni { fill: var(--accent); opacity: .35; } .chart text { font-size: 10px; fill: var(--muted); } .chart .axis { stroke: var(--line); }
 .bars { display: grid; gap: 8px; } .bars .b { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; font-size: .9rem; } .bars .b i { display: block; height: 8px; border-radius: 999px; background: var(--accent); opacity: .8; } .bars .b .n { color: var(--muted); font-size: .85rem; min-width: 32px; text-align: right; }
 .bars .b .lbl { display: flex; justify-content: space-between; gap: 10px; }
+
+/* needs attention */
+.attention { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.attention li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); cursor: pointer; font-size: .92rem; }
+.attention li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; background: var(--muted); }
+.attention li.warn::before { background: var(--warn); } .attention li.danger::before { background: var(--danger); } .attention li.new::before { background: var(--accent); }
+.attention li:hover { background: color-mix(in srgb, var(--surface-2) 70%, var(--accent-soft)); }
+
+/* diagnostic snapshot */
+.snap { display: grid; gap: 6px; margin-bottom: 6px; }
+.snap-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: inherit; font-size: .92rem; }
+.snap-row:hover { border-color: var(--accent); } .snap-row .v { font-variant-numeric: tabular-nums; } .snap-row .c { display: flex; gap: 6px; }
+
+/* builder rows */
+.b-item { padding: 8px 0; border-top: 1px solid var(--line); } .b-item:first-child { border-top: 0; }
+.b-item input, .b-item select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.rows input, .rows textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: 100%; }
+.rows .row input { width: auto; }
+.drawer .panel.wide { width: min(760px, 100%); }
+
+/* art picker */
+.art-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+.art-pick button { aspect-ratio: 1; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; }
+.art-pick button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); background: var(--accent-soft); }
+.art-pick img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* rich text editor */
+.rte { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.rte-bar { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.rte-bar button { border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 4px 8px; font-size: .85rem; cursor: pointer; color: var(--ink-2); }
+.rte-bar button:hover, .rte-bar button[aria-pressed="true"] { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.rte-bar .spacer { flex: 1; }
+.rte-edit { min-height: 220px; max-height: 60vh; overflow: auto; padding: 12px 14px; outline: none; line-height: 1.55; }
+.rte-edit:focus { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.rte-edit h3 { font-size: 1.05rem; margin: 1em 0 .4em; } .rte-edit p { margin: 0 0 .7em; } .rte-edit blockquote { margin: .6em 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--ink-2); }
+.rte-edit table { border-collapse: collapse; } .rte-edit td, .rte-edit th { border: 1px solid var(--line); padding: 4px 8px; }
+.rte-src { width: 100%; border: 0; padding: 12px 14px; background: var(--surface); resize: vertical; }
+.rte .hint { margin: 0; padding: 6px 12px; border-top: 1px solid var(--line); }
+
+/* drawer form basics (builder rows that are not .field) */
+.drawer input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), .drawer select, .drawer textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.drawer .grid.two { grid-template-columns: 1fr 1fr; } @media (max-width: 480px) { .drawer .grid.two { grid-template-columns: 1fr; } }
+.table td.nowrap { white-space: nowrap; }

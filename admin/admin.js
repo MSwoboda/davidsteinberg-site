@@ -1,4 +1,5 @@
-/* Practice dashboard. Sections: overview, requests, clients, questionnaires, traffic, audit. All data via window.API. */
+/* Practice dashboard. Sections: overview, requests, clients, assessments (assess.js), site content (content.js), traffic, audit.
+   All data via window.API. Shared helpers live on window.ADMIN for the other files. */
 (function () {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -12,6 +13,7 @@
   const CSTATUS = { new: ['Awaiting confirmation', 'warn'], active: ['Active', 'ok'], inactive: ['Inactive', ''], staff: ['Staff', 'ok'] };
   const chip = (map, s) => { const [l, c] = map[s] || [s, '']; return `<span class="chip ${c}">${esc(l)}</span>`; };
   let me = null, main = null, cache = {};
+  const A = window.ADMIN = { $, $$, esc, fmtDate, fmtDay, ago, chip, cache, sections: {}, get main() { return main; } };
 
   const root = document.documentElement;
   try { const t = localStorage.getItem('ds-mode'); if (t === 'dark' || t === 'light') root.dataset.theme = t; } catch (e) {}
@@ -19,13 +21,21 @@
   if (API.isDemo) { const b = document.createElement('div'); b.className = 'demo-badge'; b.textContent = 'Demo data · nothing is saved'; document.body.appendChild(b); }
 
   function showSignIn() { $('#who').hidden = true; app.innerHTML = ''; app.appendChild(tpl('t-signin')); $('#signin').addEventListener('click', async e => { e.target.disabled = true; try { await API.signIn(); } catch (err) { e.target.disabled = false; alert('Sign-in did not complete. ' + (err && err.message || '')); } }); }
-  function drawer(html) { $('#drawer-body').innerHTML = html; $('#drawer').classList.add('open'); }
+  function drawer(html) { $('#drawer-body').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer .panel').scrollTop = 0; }
   function closeDrawer() { $('#drawer').classList.remove('open'); }
+  A.drawer = drawer; A.closeDrawer = closeDrawer;
 
   /* ---------- overview ---------- */
   async function overview() {
-    const [reqs, clients, traffic] = await Promise.all([API.listRequests(), API.listClients(), API.listTraffic()]);
-    cache = { reqs, clients, traffic };
+    const [reqs, clients, traffic, resps, qs, published] = await Promise.all([API.listRequests(), API.listClients(), API.listTraffic(), API.listAllResponses(), API.listQuestionnaires(), API.getSite('published').catch(() => null)]);
+    Object.assign(cache, { reqs, clients, traffic, resps, qs });
+    const twoDays = Date.now() - 2 * 864e5;
+    const attention = [
+      ...reqs.filter(r => r.emailed === false).map(r => ({ kind: 'danger', text: `Notification email failed for <strong>${esc(r.name)}</strong> — the request is saved, open it to follow up.`, href: '#requests', req: r.id })),
+      ...reqs.filter(r => r.status === 'new' && new Date(r.received) < twoDays).map(r => ({ kind: 'warn', text: `<strong>${esc(r.name)}</strong> asked for a consultation ${ago(r.received)} and has not been contacted.`, req: r.id })),
+      ...resps.filter(r => r.status === 'submitted' && !r.reviewedAt).map(r => { const c = clients.find(x => x.uid === r.uid), q = qs.find(x => x.id === r.qid); return { kind: 'new', text: `<strong>${esc(c ? c.pseudonym : r.uid)}</strong> submitted <em>${esc(q ? q.title : r.qid)}</em> ${ago(r.submittedAt)} — not reviewed yet.`, client: r.uid }; }),
+      ...clients.filter(c => c.status === 'new').map(c => ({ kind: 'warn', text: `<strong>${esc(c.pseudonym)}</strong> created a portal account ${ago(c.createdAt)} and is awaiting confirmation.`, client: c.uid })),
+    ];
     const last7 = traffic.slice().sort((a, b) => b.day.localeCompare(a.day)).slice(0, 7);
     const views7 = last7.reduce((a, d) => a + (d.views || 0), 0), uni7 = last7.reduce((a, d) => a + (d.uniques || 0), 0);
     const newReqs = reqs.filter(r => r.status === 'new');
@@ -38,13 +48,15 @@
         <div class="card stat"><div class="n">${views7}</div><div class="l">page views · 7 days</div></div>
         <div class="card stat"><div class="n">${uni7}</div><div class="l">visitors · 7 days</div></div>
       </div>
+      ${attention.length ? `<section class="card" style="margin-bottom:16px"><h2>Needs attention <span class="chip warn">${attention.length}</span></h2><ul class="attention">${attention.slice(0, 10).map(a => `<li class="${a.kind}"${a.req ? ` data-req="${esc(a.req)}"` : a.client ? ` data-client="${esc(a.client)}"` : ''}><span>${a.text}</span></li>`).join('')}</ul>${attention.length > 10 ? `<p class="muted small">and ${attention.length - 10} more</p>` : ''}</section>` : '<section class="card" style="margin-bottom:16px"><p class="muted" style="margin:0">Nothing needs attention right now.</p></section>'}
       <div class="grid two">
         <section class="card"><div class="row between"><h2 style="margin:0">Latest requests</h2><a class="btn quiet sm" href="#requests">All</a></div>
           <div class="table-wrap"><table class="table"><tbody>${reqs.slice(0, 5).map(r => `<tr class="clickable" data-req="${esc(r.id)}"><td><strong>${esc(r.name)}</strong><br><span class="muted small">${esc((r.modality || []).join(', ') || '—')} · ${esc((r.mode || []).join(', '))}</span></td><td class="small muted">${fmtDate(r.received)}</td><td>${chip(STATUS, r.status)}</td></tr>`).join('') || '<tr><td class="muted">No requests yet.</td></tr>'}</tbody></table></div></section>
         <section class="card"><div class="row between"><h2 style="margin:0">Recently active clients</h2><a class="btn quiet sm" href="#clients">All</a></div>
           <div class="table-wrap"><table class="table"><tbody>${clients.filter(c => c.status !== 'staff').sort((a, b) => (b.lastSeen || '').localeCompare(a.lastSeen || '')).slice(0, 5).map(c => `<tr class="clickable" data-client="${esc(c.uid)}"><td><strong>${esc(c.pseudonym)}</strong><br><span class="muted small">${(c.assigned || []).length} assigned · seen ${ago(c.lastSeen)}</span></td><td>${chip(CSTATUS, c.status)}</td></tr>`).join('') || '<tr><td class="muted">No clients yet.</td></tr>'}</tbody></table></div></section>
       </div>
-      <section class="card" style="margin-top:16px"><div class="row between"><h2 style="margin:0">Traffic · last 30 days</h2><a class="btn quiet sm" href="#traffic">Details</a></div>${chart(traffic)}</section>`;
+      <section class="card" style="margin-top:16px"><div class="row between"><h2 style="margin:0">Traffic · last 30 days</h2><a class="btn quiet sm" href="#traffic">Details</a></div>${chart(traffic)}</section>
+      <p class="muted small" style="margin-top:14px">Site content: ${published ? `published ${fmtDate(published.updatedAt)} by ${esc(published.updatedBy || '')}` : 'the site is showing the built-in content; nothing published from here yet'} · <a href="#content">edit</a></p>`;
     $$('[data-req]', main).forEach(tr => tr.addEventListener('click', () => openRequest(tr.dataset.req)));
     $$('[data-client]', main).forEach(tr => tr.addEventListener('click', () => openClient(tr.dataset.client)));
   }
@@ -101,7 +113,7 @@
     const couple = cache.couples.find(k => k.id === c.coupleId); const partner = couple && cache.clients.find(x => x.uid === couple.members.find(m => m !== uid));
     const partnerResp = partner ? await API.listResponsesFor(partner.uid) : [];
     const qrows = cache.qs.map(q => { const on = (c.assigned || []).includes(q.id); const r = resp.find(x => x.qid === q.id); const pr = partnerResp.find(x => x.qid === q.id);
-      return `<tr><td><label class="row" style="gap:8px"><input type="checkbox" data-assign="${esc(q.id)}" ${on ? 'checked' : ''}> ${esc(q.title)}</label></td><td class="small">${r ? (r.status === 'submitted' ? `<a href="#" data-view="${esc(q.id)}">Submitted ${fmtDay(r.submittedAt)}</a>` : 'In progress') : '<span class="muted">—</span>'}</td><td class="small">${partner ? (pr ? (pr.status === 'submitted' ? `Submitted ${fmtDay(pr.submittedAt)}` : 'In progress') : '<span class="muted">—</span>') : ''}</td></tr>`; }).join('');
+      return `<tr><td><label class="row" style="gap:8px"><input type="checkbox" data-assign="${esc(q.id)}" ${on ? 'checked' : ''}> ${esc(q.title)}</label></td><td class="small">${r ? `<a href="#" data-view="${esc(q.id)}">${r.status === 'submitted' ? 'Submitted ' + fmtDay(r.submittedAt) : 'In progress'}</a>` : '<span class="muted">—</span>'}</td><td class="small">${partner ? (pr ? `<a href="#" data-view="${esc(q.id)}">${pr.status === 'submitted' ? 'Submitted ' + fmtDay(pr.submittedAt) : 'In progress'}</a>` : '<span class="muted">—</span>') : ''}</td></tr>`; }).join('');
     drawer(`<p class="kicker">Client</p><h2>${esc(c.pseudonym)}</h2>
       <div class="row" style="margin-bottom:12px">${chip(CSTATUS, c.status)}<span class="muted small">joined ${fmtDay(c.createdAt)} · seen ${ago(c.lastSeen)}</span></div>
       <div class="card soft" style="padding:14px 16px;margin-bottom:14px"><p class="kicker">Identity (staff only)</p><div data-identity>${c.email ? `<strong>${esc(c.displayName || '')}</strong> · ${esc(c.email)}` : `<button class="btn sm" data-reveal type="button">Show who this is</button> <span class="muted small">Writes an entry to the audit log.</span>`}</div></div>
@@ -112,35 +124,15 @@
       <div class="field"><label>Next appointment (shown to the client)</label><input data-next value="${esc(c.nextAppointment || '')}" placeholder="Thu, Nov 5 · 6:00 PM · Video"></div>
       <div class="field"><label>Working on (shown to the client)</label><input data-focus value="${esc(c.focus || '')}" placeholder="Listening without defending"></div>
       <div class="field"><label>Private note (staff only)</label><textarea data-note>${esc(c.note || '')}</textarea></div>
-      <p class="kicker">Questionnaires</p>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Assigned</th><th>${esc(c.pseudonym)}</th><th>${partner ? esc(partner.pseudonym) : ''}</th></tr></thead><tbody>${qrows || '<tr><td class="muted" colspan="3">No questionnaires imported yet.</td></tr>'}</tbody></table></div>
+      <p class="kicker">Diagnostic snapshot</p>
+      ${A.assess ? A.assess.snapshot(c, resp, cache.qs) : ''}
+      <p class="kicker" style="margin-top:14px">Assessments</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Assigned</th><th>${esc(c.pseudonym)}</th><th>${partner ? esc(partner.pseudonym) : ''}</th></tr></thead><tbody>${qrows || '<tr><td class="muted" colspan="3">No assessments yet — create one under Assessments.</td></tr>'}</tbody></table></div>
       <div class="row" style="margin-top:16px"><button class="btn primary" data-save type="button">Save</button><span class="muted small" data-msg></span></div>`);
     const d = $('#drawer');
     const rev = $('[data-reveal]', d); if (rev) rev.addEventListener('click', async () => { rev.disabled = true; const i = await API.clientIdentity(uid); $('[data-identity]', d).innerHTML = `<strong>${esc(i.displayName || '')}</strong> · ${esc(i.email)}`; Object.assign(c, i); });
-    $$('[data-view]', d).forEach(a => a.addEventListener('click', e => { e.preventDefault(); viewResponses(c, partner, a.dataset.view, resp, partnerResp); }));
+    $$('[data-view], [data-res]', d).forEach(a => a.addEventListener('click', e => { e.preventDefault(); A.assess.results(c, a.dataset.view || a.dataset.res); }));
     $('[data-save]', d).addEventListener('click', async e => { e.target.disabled = true; const patch = { status: $('[data-cstatus]', d).value, nextAppointment: $('[data-next]', d).value.trim(), focus: $('[data-focus]', d).value.trim(), note: $('[data-note]', d).value.trim(), assigned: $$('[data-assign]', d).filter(x => x.checked).map(x => x.dataset.assign) }; await API.updateClient(uid, patch); Object.assign(c, patch); $('[data-msg]', d).textContent = 'Saved.'; e.target.disabled = false; if (location.hash === '#clients') clients(); });
-  }
-  function viewResponses(c, partner, qid, resp, partnerResp) {
-    const q = cache.qs.find(x => x.id === qid); const r = resp.find(x => x.qid === qid); const pr = partnerResp.find(x => x.qid === qid);
-    const scale = q.scale || {}; const lab = v => { if (v == null) return '—'; const i = (scale.values || []).indexOf(Number(v)); return i >= 0 && scale.labels ? scale.labels[i] : String(v); };
-    const sc = x => { const s = score(q, x ? x.answers : {}); return s ? `${s.total}${s.label ? ' · ' + s.label : ''}` : '—'; };
-    drawer(`<p class="kicker">Responses</p><h2>${esc(q.title)}</h2>
-      <div class="grid two" style="margin-bottom:12px"><div class="card soft" style="padding:12px 14px"><p class="kicker">${esc(c.pseudonym)}</p><strong>${sc(r)}</strong><div class="muted small">${r ? fmtDate(r.submittedAt) : '—'}</div></div>${partner ? `<div class="card soft" style="padding:12px 14px"><p class="kicker">${esc(partner.pseudonym)}</p><strong>${sc(pr)}</strong><div class="muted small">${pr ? fmtDate(pr.submittedAt) : 'not submitted'}</div></div>` : ''}</div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Item</th><th>${esc(c.pseudonym)}</th>${partner ? `<th>${esc(partner.pseudonym)}</th>` : ''}</tr></thead><tbody>
-      ${q.items.map((it, i) => `<tr><td class="small">${i + 1}. ${esc(it.text)}</td><td class="small">${esc(lab(r && r.answers[it.id]))}</td>${partner ? `<td class="small">${esc(lab(pr && pr.answers[it.id]))}</td>` : ''}</tr>`).join('')}
-      </tbody></table></div><p style="margin-top:14px"><button class="btn sm" type="button" data-backc>← Back to ${esc(c.pseudonym)}</button></p>`);
-    $('#drawer [data-backc]').addEventListener('click', () => openClient(c.uid));
-  }
-  function score(q, answers) {
-    const sc = q.scoring || {}; if (!sc.method || sc.method === 'none') return null;
-    const scale = q.scale || {}; const vals = scale.values || [1, 2, 3, 4]; const max = Math.max(...vals), min = Math.min(...vals);
-    const nums = q.items.filter(it => (it.type || scale.type || 'likert') === 'likert').map(it => { let v = Number(answers[it.id]); if (isNaN(v)) return null; if ((sc.reverse || []).includes(it.id)) v = max + min - v; return v; }).filter(v => v != null);
-    const yes = q.items.filter(it => (it.type || scale.type) === 'yesno' && answers[it.id] === 'yes').length;
-    if (!nums.length && (scale.type === 'yesno')) return { total: yes + ' yes', label: '' };
-    if (!nums.length) return null;
-    const total = sc.method === 'mean' ? nums.reduce((a, b) => a + b, 0) / nums.length : nums.reduce((a, b) => a + b, 0);
-    const band = (sc.bands || []).find(b => total <= b.max);
-    return { total: Math.round(total * 10) / 10, label: band ? band.label : '' };
   }
   function pairCouple() {
     const free = cache.clients.filter(c => c.status !== 'staff' && !c.coupleId);
@@ -149,32 +141,6 @@
       <div class="field"><label>Second partner</label><select data-b>${free.map(c => `<option value="${esc(c.uid)}">${esc(c.pseudonym)}${c.email ? ' · ' + esc(c.email) : ''}</option>`).join('')}</select></div>
       <div class="row"><button class="btn primary" data-go type="button" ${free.length < 2 ? 'disabled' : ''}>Pair</button><span class="muted small" data-msg>${free.length < 2 ? 'Two unpaired clients are needed.' : ''}</span></div>`);
     $('#drawer [data-go]').addEventListener('click', async e => { const a = $('#drawer [data-a]').value, b = $('#drawer [data-b]').value; if (a === b) { $('#drawer [data-msg]').textContent = 'Pick two different clients.'; return; } e.target.disabled = true; await API.createCouple([a, b]); closeDrawer(); clients(); });
-  }
-
-  /* ---------- questionnaires ---------- */
-  async function questionnaires() {
-    const qs = cache.qs = await API.listQuestionnaires();
-    main.innerHTML = `<div class="row between" style="margin-bottom:14px"><h1 style="margin:0">Questionnaires</h1><button class="btn primary" data-import type="button">Import JSON</button></div>
-      <p class="muted small">One JSON file per instrument (see backend/questionnaires/TEMPLATE.json). Importing a file with an existing id replaces it; answers already given are kept.</p>
-      <section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Title</th><th>Kind</th><th>Items</th><th>Scoring</th><th></th></tr></thead><tbody>
-      ${qs.map(q => `<tr><td><strong>${esc(q.title)}</strong><br><span class="muted small mono">${esc(q.id)}</span></td><td class="small">${esc(q.kind || '')}</td><td class="small">${q.items.length}</td><td class="small">${esc((q.scoring && q.scoring.method) || 'none')}</td><td class="actions"><button class="btn sm" data-prev="${esc(q.id)}" type="button">Preview</button> <button class="btn sm danger" data-del="${esc(q.id)}" type="button">Remove</button></td></tr>`).join('') || `<tr><td colspan="5"><div class="empty">No questionnaires yet. Import the first one.</div></td></tr>`}
-      </tbody></table></div></section>`;
-    $('[data-import]', main).addEventListener('click', () => {
-      drawer(`<p class="kicker">Import</p><h2>Questionnaire JSON</h2><div class="field"><label>Choose a file</label><input type="file" accept="application/json,.json" data-file></div><div class="field"><label>or paste JSON</label><textarea data-json rows="14" class="mono" placeholder='{ "id": "...", "title": "...", "items": [ ... ] }'></textarea></div><div class="row"><button class="btn primary" data-go type="button">Import</button><span class="small" data-msg></span></div>`);
-      const d = $('#drawer'); $('[data-file]', d).addEventListener('change', e => { const f = e.target.files[0]; if (f) f.text().then(t => { $('[data-json]', d).value = t; }); });
-      $('[data-go]', d).addEventListener('click', async e => { const msg = $('[data-msg]', d); try { const doc = JSON.parse($('[data-json]', d).value); const err = validateQ(doc); if (err) { msg.textContent = err; return; } e.target.disabled = true; await API.upsertQuestionnaire(doc); closeDrawer(); questionnaires(); } catch (err) { msg.textContent = 'Not valid JSON: ' + err.message; } });
-    });
-    $$('[data-prev]', main).forEach(b => b.addEventListener('click', () => { const q = qs.find(x => x.id === b.dataset.prev); drawer(`<p class="kicker">${esc(q.kind || '')}</p><h2>${esc(q.title)}</h2><p class="muted">${esc(q.instructions || '')}</p><ol>${q.items.map(it => `<li>${esc(it.text)} <span class="muted small">(${esc(it.type || (q.scale && q.scale.type) || 'likert')})</span></li>`).join('')}</ol><p class="small muted">Scale: ${esc((q.scale && q.scale.labels || []).join(' / ') || (q.scale && q.scale.type) || '—')} · Scoring: ${esc((q.scoring && q.scoring.method) || 'none')}</p>`); }));
-    $$('[data-del]', main).forEach(b => b.addEventListener('click', async () => { if (!confirm('Remove "' + b.dataset.del + '" from the portal? Answers already given are kept.')) return; await API.deleteQuestionnaire(b.dataset.del); questionnaires(); }));
-  }
-  function validateQ(d) {
-    if (!d || typeof d !== 'object') return 'Not an object.';
-    if (!/^[a-z0-9-]{2,40}$/.test(d.id || '')) return 'id must be 2–40 lowercase letters, digits or dashes.';
-    if (!d.title) return 'title is required.';
-    if (!Array.isArray(d.items) || !d.items.length) return 'items must be a non-empty list.';
-    const bad = d.items.find(it => !it.id || !it.text); if (bad) return 'every item needs an id and a text.';
-    const ids = new Set(d.items.map(it => String(it.id))); if (ids.size !== d.items.length) return 'item ids must be unique.';
-    return '';
   }
 
   /* ---------- traffic ---------- */
@@ -216,11 +182,12 @@
   }
 
   /* ---------- routing + auth ---------- */
-  const SECTIONS = { overview, requests, clients, questionnaires, traffic, audit };
+  A.openClient = openClient;
+  Object.assign(A.sections, { overview, requests, clients, traffic, audit });
   async function route() {
     if (!me || !main) return;
-    const h = (location.hash || '#overview').slice(1).split('/')[0]; const fn = SECTIONS[h] || overview;
-    $$('[data-nav]').forEach(a => a.setAttribute('aria-current', a.dataset.nav === (SECTIONS[h] ? h : 'overview') ? 'page' : 'false'));
+    const h = (location.hash || '#overview').slice(1).split('/')[0]; const fn = A.sections[h] || overview;
+    $$('[data-nav]').forEach(a => a.setAttribute('aria-current', a.dataset.nav === (A.sections[h] ? h : 'overview') ? 'page' : 'false'));
     main.innerHTML = '<p class="muted">Loading…</p>';
     try { await fn(); } catch (e) { main.innerHTML = `<div class="notice warn">Could not load: ${esc(e.message || e)}</div>`; }
     const badge = $('[data-count-new]'); if (badge && cache.reqs) { const n = cache.reqs.filter(r => r.status === 'new').length; badge.textContent = n; badge.hidden = !n; }

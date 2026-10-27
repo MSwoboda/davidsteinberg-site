@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var cfg = window.SITE_CONFIG || {}, url = cfg.hitEndpoint;
-  if (!url || /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || navigator.doNotTrack === '1' || /claude\.ai|claudeusercontent/.test(location.hostname)) return;
+  if (!url || /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || navigator.doNotTrack === '1' || /claude\.ai|claudeusercontent/.test(location.hostname) || /[?&]preview=1/.test(location.search)) return;
   var last = '';
   function send() {
     var concept = document.documentElement.getAttribute('data-concept') || (location.pathname.indexOf('/sage/') !== -1 ? 'sage' : '');

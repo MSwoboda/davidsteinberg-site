@@ -4,5 +4,7 @@
 window.SITE_CONFIG = {
   formEndpoint: 'https://us-east4-davidsteinberg-site.cloudfunctions.net/consultationRequest',
   /* pageHit function: page-view counter for the dashboard. Empty = no counting. */
+  /* Firebase project id: the site reads the content published from the dashboard (site/published). Empty = baked content only. */
+  firebaseProject: 'davidsteinberg-site',
   hitEndpoint: 'https://us-east4-davidsteinberg-site.cloudfunctions.net/pageHit'
 };

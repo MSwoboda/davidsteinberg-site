@@ -33,13 +33,24 @@ service cloud.firestore {
       allow write: if staff();
     }
 
-    // answers: a client writes their own, staff read everything
+    // answers: a client writes their own; a submitted answer set can only be reopened by the client as a new attempt
+    // (the previous one is kept in `history`); staff read everything and may add a note / mark as reviewed
     match /responses/{id} {
       allow read: if staff() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid && id == request.auth.uid + '_' + request.resource.data.qid;
-      allow update: if signedIn() && resource.data.uid == request.auth.uid && resource.data.status != 'submitted';
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid && request.resource.data.qid == resource.data.qid
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['staffNote', 'reviewedAt', 'reviewedBy'])
+                    && (resource.data.status != 'submitted' || request.resource.data.attempt > resource.data.get('attempt', 1));
+      allow update: if staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['staffNote', 'reviewedAt', 'reviewedBy']);
       allow delete: if false;
     }
+
+    // site content managed from the dashboard: the published version is public (the site reads it without
+    // signing in); the draft and the version history are staff only
+    match /site/published { allow read: if true; allow write: if staff(); }
+    match /site/draft { allow read, write: if staff(); }
+    match /site/versions/list/{v} { allow read, write: if staff(); }
 
     // messages between a client and the practice (phase 2 UI; rules ready)
     match /threads/{uid}/messages/{mid} {

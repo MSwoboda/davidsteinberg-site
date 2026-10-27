@@ -44,6 +44,11 @@
       traffic.push({ day, views, uniques: Math.round(views * 0.62), paths: { '_davidsteinberg-site_': Math.round(views * 0.7), '_davidsteinberg-site_sage_': Math.round(views * 0.3) }, routes: { '_article_rage-is-the-new-hurt': Math.round(views * 0.12), '_service_couples': Math.round(views * 0.1), '_page_fees': Math.round(views * 0.08), '_article_3-deadly-relationship-killing-mistakes': Math.round(views * 0.06) }, concepts: { civic: Math.round(views * 0.5), nouveau: Math.round(views * 0.2), sage: Math.round(views * 0.3) }, devices: { phone: Math.round(views * 0.58), desktop: Math.round(views * 0.36), tablet: Math.round(views * 0.06) }, referrers: { google_com: Math.round(views * 0.4), 'psychologytoday_com': Math.round(views * 0.08), 'chatgpt_com': Math.round(views * 0.05), 'bing_com': Math.round(views * 0.03) } });
     }
     const audit = [{ at: iso(daysAgo(1)), by: 'michswo@gmail.com', action: 'identity', target: 'u-quiet-heron' }, { at: iso(daysAgo(3)), by: 'michswo@gmail.com', action: 'list-identities', count: 5 }];
+    responses['u-quiet-heron_self-check'].attempt = 2; responses['u-quiet-heron_self-check'].history = [{ answers: { q1: 2, q2: 1, q3: 2, q4: 3, q5: 2, q6: 2 }, submittedAt: iso(daysAgo(40)), attempt: 1 }];
+    responses['u-cedar-otter_self-check'].staffNote = 'Discussed in session 10/22; low on repair (q4). Revisit in four weeks.'; responses['u-cedar-otter_self-check'].reviewedAt = iso(daysAgo(4)); responses['u-cedar-otter_self-check'].reviewedBy = 'michswo@gmail.com';
+    /* site content: the dashboard edits a draft and publishes; the demo seeds both from the baked content.js */
+    const baked = () => JSON.stringify(window.CONTENT || {});
+    const site = { published: { json: baked(), version: '2026-10-26T12:00:00.000Z', updatedAt: iso(daysAgo(1)), updatedBy: 'michswo@gmail.com' }, draft: null, versions: [{ id: '2026-10-26T12:00:00.000Z', updatedAt: iso(daysAgo(1)), updatedBy: 'michswo@gmail.com', note: 'First publish from the dashboard', size: baked().length }] };
     let user = null; const listeners = [];
     const role = params.get('role') === 'client' ? 'client' : (location.pathname.includes('/portal') ? 'client' : 'staff');
     const demoUser = role === 'staff' ? { uid: 'staff-1', email: 'michswo@gmail.com', displayName: 'MS' } : { uid: 'u-quiet-heron', email: 'alex.r@example.com', displayName: 'Alex R.' };
@@ -60,7 +65,7 @@
       async listQuestionnaires() { return Object.values(clone(Q)); },
       async getQuestionnaire(id) { return clone(Q[id]) || null; },
       async getResponse(qid) { return clone(responses[user.uid + '_' + qid] || null); },
-      async saveResponse(qid, answers, status) { const k = user.uid + '_' + qid; const cur = responses[k] || { uid: user.uid, qid, startedAt: iso(new Date()) }; responses[k] = { ...cur, answers, status, ...(status === 'submitted' ? { submittedAt: iso(new Date()) } : {}) }; return clone(responses[k]); },
+      async saveResponse(qid, answers, status, retake) { const k = user.uid + '_' + qid; let cur = responses[k] || { uid: user.uid, qid, startedAt: iso(new Date()), attempt: 1 }; if (retake && cur.status === 'submitted') cur = { ...cur, history: [...(cur.history || []), { answers: cur.answers, submittedAt: cur.submittedAt, attempt: cur.attempt || 1 }], attempt: (cur.attempt || 1) + 1, startedAt: iso(new Date()), submittedAt: null }; responses[k] = { ...cur, answers, status, ...(status === 'submitted' ? { submittedAt: iso(new Date()) } : {}) }; return clone(responses[k]); },
       async listMyResponses() { return Object.values(responses).filter(r => r.uid === user.uid).map(clone); },
       async listRequests() { return clone(requests).sort((a, b) => b.received.localeCompare(a.received)); },
       async updateRequest(id, patch) { const r = requests.find(x => x.id === id); Object.assign(r, patch, { updatedAt: iso(new Date()) }); return clone(r); },
@@ -74,6 +79,13 @@
       async upsertQuestionnaire(doc) { Q[doc.id] = clone(doc); return doc.id; },
       async deleteQuestionnaire(id) { delete Q[id]; },
       async listAudit() { return clone(audit); },
+      async listAllResponses() { return Object.entries(responses).map(([id, r]) => ({ id, ...clone(r) })); },
+      async updateResponse(id, patch) { Object.assign(responses[id], patch); return clone(responses[id]); },
+      async getSite(which) { return site[which] ? clone(site[which]) : null; },
+      async saveSiteDraft(json) { site.draft = { json, updatedAt: iso(new Date()), updatedBy: user.email }; return site.draft; },
+      async publishSite(json, note) { const version = iso(new Date()); site.published = { json, version, updatedAt: version, updatedBy: user.email, note: note || '' }; site.versions.unshift({ id: version, updatedAt: version, updatedBy: user.email, note: note || '', size: json.length, json }); site.draft = null; return version; },
+      async listSiteVersions() { return site.versions.map(({ json, ...v }) => v); },
+      async getSiteVersion(id) { const v = site.versions.find(x => x.id === id); return v ? { json: v.json || site.published.json, ...v } : null; },
     };
   }
 
@@ -103,7 +115,14 @@
       async listQuestionnaires() { return all(await col('questionnaires')); },
       async getQuestionnaire(id) { const { F } = await ready; const s = await F.getDoc(await docRef('questionnaires', id)); return s.exists() ? { id: s.id, ...s.data() } : null; },
       async getResponse(qid) { const { F } = await ready; const s = await F.getDoc(await docRef('responses', uid() + '_' + qid)); return s.exists() ? s.data() : null; },
-      async saveResponse(qid, answers, status) { const { F } = await ready; const ref = await docRef('responses', uid() + '_' + qid); const cur = await F.getDoc(ref); const now = new Date().toISOString(); const data = { uid: uid(), qid, answers, status, startedAt: cur.exists() ? cur.data().startedAt : now, updatedAt: now, ...(status === 'submitted' ? { submittedAt: now } : {}) }; await F.setDoc(ref, data); return data; },
+      async saveResponse(qid, answers, status, retake) {
+        const { F } = await ready; const ref = await docRef('responses', uid() + '_' + qid); const snap = await F.getDoc(ref); const now = new Date().toISOString();
+        let cur = snap.exists() ? snap.data() : { uid: uid(), qid, startedAt: now, attempt: 1, history: [] };
+        if (retake && cur.status === 'submitted') cur = { ...cur, history: [...(cur.history || []), { answers: cur.answers, submittedAt: cur.submittedAt || null, attempt: cur.attempt || 1 }], attempt: (cur.attempt || 1) + 1, startedAt: now, submittedAt: null };
+        const { staffNote, reviewedAt, reviewedBy, ...own } = cur;   // staff fields are never written by the client
+        const data = { ...own, uid: uid(), qid, answers, status, attempt: own.attempt || 1, history: own.history || [], startedAt: own.startedAt || now, updatedAt: now, ...(status === 'submitted' ? { submittedAt: now } : {}) };
+        await F.setDoc(ref, data, { merge: true }); return data;
+      },
       async listMyResponses() { const { F } = await ready; return all(F.query(await col('responses'), F.where('uid', '==', uid()))); },
       async listRequests() { const { F } = await ready; return all(F.query(await col('requests'), F.orderBy('received', 'desc'), F.limit(500))); },
       async updateRequest(id, patch) { const { F } = await ready; await F.updateDoc(await docRef('requests', id), { ...patch, updatedAt: new Date().toISOString(), updatedBy: fb.auth.currentUser.email }); },
@@ -117,6 +136,14 @@
       async upsertQuestionnaire(doc) { const { F } = await ready; await F.setDoc(await docRef('questionnaires', doc.id), doc); return doc.id; },
       async deleteQuestionnaire(id) { const { F } = await ready; await F.deleteDoc(await docRef('questionnaires', id)); },
       async listAudit() { const { F } = await ready; return all(F.query(await col('audit'), F.orderBy('at', 'desc'), F.limit(200))); },
+      async listAllResponses() { return all(await col('responses')); },
+      async updateResponse(id, patch) { const { F } = await ready; await F.updateDoc(await docRef('responses', id), patch); },
+      async getSite(which) { const { F } = await ready; const s = await F.getDoc(await docRef('site', which)); return s.exists() ? s.data() : null; },
+      async saveSiteDraft(json) { const { F } = await ready; const d = { json, updatedAt: new Date().toISOString(), updatedBy: fb.auth.currentUser.email }; await F.setDoc(await docRef('site', 'draft'), d); return d; },
+      async publishSite(json, note) { const { F, db } = await ready; const version = new Date().toISOString(); const by = fb.auth.currentUser.email; const pub = { json, version, updatedAt: version, updatedBy: by, note: note || '' };
+        await F.setDoc(await docRef('site', 'published'), pub); await F.setDoc(F.doc(db, 'site', 'versions', 'list', version), { ...pub, id: version, size: json.length }); await F.deleteDoc(await docRef('site', 'draft')); return version; },
+      async listSiteVersions() { const { F, db } = await ready; const s = await F.getDocs(F.query(F.collection(db, 'site', 'versions', 'list'), F.orderBy('version', 'desc'), F.limit(30))); return s.docs.map(d => { const { json, ...v } = d.data(); return { id: d.id, ...v }; }); },
+      async getSiteVersion(id) { const { F, db } = await ready; const s = await F.getDoc(F.doc(db, 'site', 'versions', 'list', id)); return s.exists() ? { id: s.id, ...s.data() } : null; },
     };
   }
 

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Client portal — David Steinberg, PhD, LCSW</title>
-<link rel="stylesheet" href="../app/ui.css">
-<script src="../app/firebase-config.js"></script>
-<script src="../app/api.js"></script>
+<link rel="stylesheet" href="../app/ui.css?v=202610271451">
+<script src="../app/firebase-config.js?v=202610271451"></script>
+<script src="../app/api.js?v=202610271451"></script>
 </head>
 <body>
 <header class="topbar">
@@ -91,10 +91,11 @@
     <p class="kicker">Submitted</p>
     <h1>Thank you.</h1>
     <p>Your answers are saved for David to review before your next session. <span data-score></span></p>
-    <p><a class="btn primary" href="#">Back to the portal</a></p>
+    <p class="row"><a class="btn primary" href="#">Back to the portal</a><button class="btn" type="button" data-retake hidden>Answer it again</button></p>
+    <p class="muted small" data-retake-note hidden>Answering again keeps your earlier answers so you and David can see what changed.</p>
   </section>
 </template>
 
-<script src="portal.js"></script>
+<script src="portal.js?v=202610271451"></script>
 </body>
 </html>

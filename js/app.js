@@ -1,11 +1,12 @@
 /* Shared renderer + theme switcher. Content comes from js/content.js (built from content/content.json). */
 (function () {
-  const C = window.CONTENT;
+  let C = window.CONTENT;
+  const live = x => Array.isArray(x) ? x.filter(i => i && i.status !== 'draft') : [];   // items the dashboard has not published yet stay out
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pad = n => String(n).padStart(2, '0');
-  const artImg = (item, cls) => `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg" alt="" loading="lazy">`;
+  const artImg = (item, cls) => item.image ? `<img${cls ? ` class="${cls}"` : ''} class="photo" src="${esc(item.image)}" alt="${esc(item.image_alt || '')}" loading="lazy">` : `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg" alt="" loading="lazy">`;
   const root = document.documentElement;
 
   /* ---------- light / dark mode (the Civic template is the live one; Nouveau and Sage live in archive/) ---------- */
@@ -28,10 +29,12 @@
   /* ---------- link map: old URLs -> pages ---------- */
   const linkMap = {};
   const norm = u => u.replace(/^https?:\/\/davidsteinberg\.com/, '').replace(/\/$/, '') + '/';
-  C.services.forEach(s => { [s.original_url, ...(s.aliases || [])].filter(u => u && /^(https?:|\/)/.test(u)).forEach(u => linkMap[norm(u)] = { kind: 'service', id: s.id }); });
-  C.articles.forEach(a => { [a.original_url, ...(a.aliases || [])].filter(u => u && /^(https?:|\/)/.test(u)).forEach(u => linkMap[norm(u)] = { kind: 'article', id: a.id }); });
-  linkMap['/psychotherapist-counseling-philadelphia/relationship-counseling/'] = { kind: 'service', id: 'relationship' };
-  linkMap['/psychotherapist/relationship-counseling-philadelphia/'] = { kind: 'service', id: 'relationship' };
+  function buildLinkMap() {
+    (C.services || []).forEach(s => { [s.original_url, ...(s.aliases || [])].filter(u => u && /^(https?:|\/)/.test(u)).forEach(u => linkMap[norm(u)] = { kind: 'service', id: s.id }); });
+    (C.articles || []).forEach(a => { [a.original_url, ...(a.aliases || [])].filter(u => u && /^(https?:|\/)/.test(u)).forEach(u => linkMap[norm(u)] = { kind: 'article', id: a.id }); });
+    linkMap['/psychotherapist-counseling-philadelphia/relationship-counseling/'] = { kind: 'service', id: 'relationship' };
+    linkMap['/psychotherapist/relationship-counseling-philadelphia/'] = { kind: 'service', id: 'relationship' };
+  }
   function rewriteLinks(rootEl) {
     $$('a[href]', rootEl).forEach(a => {
       const h = a.getAttribute('href');
@@ -47,7 +50,7 @@
   /* ---------- counseling: grid (for the other concepts) + explorer ---------- */
   const shapes = ['circle', 'half', 'quarter', 'ring', 'square', 'triangle', 'pill', 'leaf', 'diamond'];
   function renderServices() {
-    $('[data-render="services"]').innerHTML = C.services.map((s, i) => `
+    $('[data-render="services"]').innerHTML = live(C.services).map((s, i) => `
       <article class="card service${i < 3 ? ' featured' : ''}" data-shape="${shapes[i % shapes.length]}" data-id="${s.id}">
         <div class="card-deco" aria-hidden="true">${i < 3 ? artImg(s) : ''}</div>
         <h3 class="card-title">${esc(s.name)}</h3>
@@ -60,8 +63,8 @@
   }
   function renderExplorer() {
     const tabs = $('.explorer .tabs'), wrap = $('.explorer .panel-wrap');
-    tabs.innerHTML = C.services.map((s, i) => `<li role="presentation"><button class="tab" role="tab" type="button" id="tab-${s.id}" aria-controls="panel-${s.id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}"><span class="num">${pad(i + 1)}</span><span>${esc(s.menu || s.name)}</span></button></li>`).join('');
-    wrap.innerHTML = C.services.map((s, i) => {
+    tabs.innerHTML = live(C.services).map((s, i) => `<li role="presentation"><button class="tab" role="tab" type="button" id="tab-${s.id}" aria-controls="panel-${s.id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}"><span class="num">${pad(i + 1)}</span><span>${esc(s.menu || s.name)}</span></button></li>`).join('');
+    wrap.innerHTML = live(C.services).map((s, i) => {
       const themes = themesOf(s.content_html);
       const group = ['couples', 'marriage', 'relationship'].includes(s.id) ? 'Couples and relationships' : s.id === 'supervision' ? 'For clinicians' : 'Individual work';
       return `<div class="cap-panel" role="tabpanel" id="panel-${s.id}" aria-labelledby="tab-${s.id}"${i ? ' hidden' : ''}>
@@ -76,7 +79,7 @@
       </div>`;
     }).join('');
     const sel = $('#service-select');
-    sel.innerHTML = C.services.map((s, i) => `<option value="${i}">${pad(i + 1)}  ${esc(s.name)}</option>`).join('');
+    sel.innerHTML = live(C.services).map((s, i) => `<option value="${i}">${pad(i + 1)}  ${esc(s.name)}</option>`).join('');
     sel.addEventListener('change', () => select(+sel.value));
     const btns = $$('.tab', tabs), panels = $$('.cap-panel', wrap);
     function select(i, scroll) {
@@ -146,6 +149,11 @@
   }
 
   /* ---------- about ---------- */
+  function renderHero() {
+    const h = C.home || {}; const set = (sel, v, html) => { const el = $(sel); if (el && v) { if (html) el.innerHTML = v; else el.textContent = v; } };
+    set('[data-render="hero-kicker"]', h.hero_kicker); set('[data-render="hero-title"]', h.hero_title && esc(h.hero_title).replace(/\n/g, '<br>'), true);
+    set('[data-render="hero-lead"]', h.hero_lead); set('[data-render="hero-note"]', h.hero_note);
+  }
   function renderAbout() {
     const el = $('[data-render="about"]');
     el.innerHTML = C.about.content_html.replace(/<h3>.*?<\/h3>/s, '').replace(/<h2>.*?<\/h2>/s, '');
@@ -185,27 +193,32 @@
   }
 
   /* ---------- resources: home shows four, the resources page shows all ---------- */
+  const QUIZ_CAT = 'Self-checks';
+  const quizAsCard = q => ({ id: q.id, kind: 'quiz', title: q.title, category: QUIZ_CAT, excerpt: q.intro || '', content_html: '', art: q.art || 'compass', image: q.image, read_minutes: 0, meta: `${(q.items || []).length} questions`, status: q.status });
+  const resourceList = () => live(C.articles).map(a => ({ ...a, kind: 'article' })).concat(live(C.quizzes).map(quizAsCard));
   function articleCard(a, i, featured) {
+    const href = `#${a.kind === 'quiz' ? 'quiz' : 'article'}/${a.id}`;
     return `<article class="card article${featured ? ' is-featured' : ''}" data-id="${a.id}" data-cat="${esc(a.category)}">
         <div class="card-deco" aria-hidden="true"></div>
-        <a class="cover" href="#article/${a.id}" aria-hidden="true" tabindex="-1">${artImg(a)}<span class="cover-num">${pad(i + 1)}</span></a>
+        <a class="cover" href="${href}" aria-hidden="true" tabindex="-1">${artImg(a)}<span class="cover-num">${pad(i + 1)}</span></a>
         <div class="card-body">
-          <p class="card-kicker">${esc(a.category)} · ${a.read_minutes} min read</p>
-          <h3 class="card-title"><a href="#article/${a.id}">${esc(a.title)}</a></h3>
+          <p class="card-kicker">${esc(a.category)} · ${a.meta || (a.read_minutes + ' min read')}</p>
+          <h3 class="card-title"><a href="${href}">${esc(a.title)}</a></h3>
           <p class="card-text">${esc(featured ? a.excerpt : (a.excerpt.length > 150 ? a.excerpt.slice(0, 147).replace(/\s\S*$/, '') + '…' : a.excerpt))}</p>
-          <a class="card-link" href="#article/${a.id}">Read the essay</a>
+          <a class="card-link" href="${href}">${a.kind === 'quiz' ? 'Take the self-check' : 'Read the essay'}</a>
         </div>
       </article>`;
   }
   function makeResources(cfg) {
     const state = { q: '', cat: 'All' };
-    const cats = ['All', ...new Set(C.articles.map(a => a.category))];
+    const items = resourceList();
+    const cats = ['All', ...new Set(items.map(a => a.category))];
     const pills = $(cfg.pills), input = $(cfg.input), feat = $(cfg.featured), grid = $(cfg.grid), empty = $(cfg.empty), more = cfg.more ? $(cfg.more) : null;
     pills.innerHTML = cats.map(c => `<button type="button" class="res-pill" aria-pressed="${c === 'All'}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
     function draw() {
       const q = state.q;
       const hit = a => (state.cat === 'All' || a.category === state.cat) && (!q || (a.title + ' ' + a.excerpt + ' ' + a.content_html.replace(/<[^>]+>/g, ' ')).toLowerCase().includes(q));
-      const list = C.articles.map((a, i) => ({ a, i })).filter(x => hit(x.a));
+      const list = items.map((a, i) => ({ a, i })).filter(x => hit(x.a));
       const filtering = q || state.cat !== 'All';
       const showFeatured = !filtering && list.length;
       const limit = cfg.limit || Infinity;
@@ -216,7 +229,7 @@
       empty.hidden = list.length > 0;
       if (more) {
         const link = $('a', more);
-        link.textContent = filtering ? `See all ${list.length} result${list.length === 1 ? '' : 's'}` : `All ${C.articles.length} essays`;
+        link.textContent = filtering ? `See all ${list.length} result${list.length === 1 ? '' : 's'}` : `All ${items.length} resources`;
         link.setAttribute('href', '#resources' + (filtering ? '?' + new URLSearchParams({ q: state.q, cat: state.cat }) : ''));
         more.hidden = filtering && list.length <= limit;
       }
@@ -234,9 +247,9 @@
 
   /* ---------- faq: pills + one list ---------- */
   function renderFaq() {
-    const groups = C.faq_groups || [...new Set(C.faq.map(f => f.group))];
+    const groups = C.faq_groups || [...new Set(live(C.faq).map(f => f.group))];
     $('[data-render="faq-pills"]').innerHTML = ['All', ...groups].map(g => `<button type="button" class="res-pill" aria-pressed="${g === 'All'}" data-group="${esc(g)}">${esc(g)}</button>`).join('');
-    $('[data-render="faq"]').innerHTML = C.faq.map((f, i) => `
+    $('[data-render="faq"]').innerHTML = live(C.faq).map((f, i) => `
       <details class="faq-item" data-group="${esc(f.group)}"${i === 0 ? ' open' : ''}>
         <summary>${esc(f.q)}</summary>
         <div class="faq-answer"><p>${esc(f.a)}</p></div>
@@ -247,28 +260,58 @@
   /* ---------- page view (articles and services) ---------- */
   const page = $('#page'), resPage = $('#resources');
   const sections = () => $$('main > section:not(#page):not(#resources)');
+  /* ---------- quizzes (self-checks built in the dashboard) ---------- */
+  function quizHtml(q) {
+    const sc = q.scale || { labels: ['Rarely', 'Sometimes', 'Often', 'Almost always'], values: [1, 2, 3, 4] };
+    const items = (q.items || []).map((it, i) => `<fieldset data-max="${Math.max(...sc.values)}" data-min="${Math.min(...sc.values)}"><legend>${i + 1}. ${esc(it.text)}</legend><div class="scale">${sc.labels.map((l, k) => `<label><input type="radio" name="q${i}" value="${sc.values[k]}">${esc(l)}</label>`).join('')}</div></fieldset>`).join('');
+    return `${q.intro ? `<p class="lead">${esc(q.intro)}</p>` : ''}${q.instructions ? `<p>${esc(q.instructions)}</p>` : ''}
+      <form class="quiz" data-quiz="${esc(q.id)}" novalidate>${items}
+        <div class="quiz-actions"><button class="button primary" type="submit">${esc(q.button || 'See my result')}</button><p class="quiz-result" hidden tabindex="-1" aria-live="polite"></p></div>
+      </form>${q.outro ? `<p class="small">${esc(q.outro)}</p>` : ''}`;
+  }
+  function bindQuiz(form, q) {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const groups = $$('fieldset', form); let total = 0, answered = 0, max = 0, min = 0;
+      groups.forEach(g => { max += +g.dataset.max; min += +g.dataset.min; const c = $('input:checked', g); if (c) { total += +c.value; answered++; } });
+      const out = $('.quiz-result', form);
+      if (answered < groups.length) { out.innerHTML = esc(`Answer all ${groups.length} statements first.`); out.hidden = false; return; }
+      const pct = max > min ? (total - min) / (max - min) * 100 : 0;
+      const bands = (q.results || []).slice().sort((a, b) => (b.min_pct || 0) - (a.min_pct || 0));
+      const band = bands.find(b => pct >= (b.min_pct || 0)) || bands[bands.length - 1];
+      out.innerHTML = `<strong>Score ${total} of ${max}${band && band.title ? ' · ' + esc(band.title) : ''}.</strong> ${band ? esc(band.text || '') : ''}${band && band.cta_label ? ` <a class="text-link" href="${esc(band.cta_href || '#contact')}">${esc(band.cta_label)}</a>` : ''}`;
+      out.hidden = false; out.focus();
+      if (window.SITE_CONFIG && window.SITE_CONFIG.hitEndpoint && !window.LIVE_PREVIEW) { try { fetch(window.SITE_CONFIG.hitEndpoint, { method: 'POST', body: JSON.stringify({ path: location.pathname, route: '#quiz-done/' + q.id, concept: 'civic', referrer: '' }), keepalive: true, mode: 'cors' }).catch(() => {}); } catch (err) {} }
+    });
+  }
+
   function openPage(kind, id, fromHash) {
-    const list = kind === 'service' ? C.services : kind === 'page' ? (C.pages || []) : C.articles;
-    const item = list.find(x => x.id === id);
+    const list = kind === 'service' ? live(C.services) : kind === 'page' ? live(C.pages) : kind === 'quiz' ? live(C.quizzes) : live(C.articles);
+    let item = list.find(x => x.id === id);
     if (!item) return closePage();
-    const isArticle = kind === 'article', isPage = kind === 'page';
+    const isQuiz = kind === 'quiz';
+    if (isQuiz) item = { ...quizAsCard(item), content_html: quizHtml(item), quiz: item };
+    const isArticle = kind === 'article' || isQuiz, isPage = kind === 'page';
     $('.page-back', page).setAttribute('href', isArticle ? '#resources' : isPage ? '#home' : '#services');
     $('.page-back', page).textContent = isArticle ? '← All resources' : isPage ? '← Home' : '← All counseling';
     $('.page-kicker', page).textContent = isArticle ? item.category : isPage ? item.kicker : 'Counseling';
     $('.page-title', page).textContent = item.name || item.title;
-    $('.page-meta', page).textContent = isArticle ? `${item.read_minutes} min read · David Steinberg, PhD, LCSW` : isPage ? item.meta : 'In person in Mt. Airy, Philadelphia, or by secure video';
+    $('.page-meta', page).textContent = isQuiz ? `${item.meta} · about ${Math.max(2, Math.round(item.quiz.items.length / 2))} minutes · nothing is stored` : isArticle ? `${item.read_minutes} min read · David Steinberg, PhD, LCSW` : isPage ? item.meta : 'In person in Mt. Airy, Philadelphia, or by secure video';
     page.dataset.kind = kind;
     $('.page-art', page).innerHTML = artImg(item);
     const body = $('.page-body', page);
     body.innerHTML = item.content_html;
     $$('h1, h2', body).forEach(h => { const n = document.createElement('h3'); n.innerHTML = h.innerHTML; h.replaceWith(n); });
     rewriteLinks(body);
-    const rel = (isArticle ? C.articles.filter(a => a.id !== id && a.category === item.category).concat(C.articles.filter(a => a.id !== id && a.category !== item.category)) : isPage ? (C.pages || []).filter(p => p.id !== id) : C.services.filter(s => s.id !== id)).slice(0, 3);
-    $('.page-related-list', page).innerHTML = rel.map(r => `<a class="related" href="#${kind}/${r.id}">${artImg(r)}<span><b>${esc(r.title || r.name)}</b><em>${esc(isArticle ? r.category : isPage ? r.kicker : 'Counseling')}</em></span></a>`).join('');
+    const pool = resourceList();
+    const rel = (isArticle ? pool.filter(a => a.id !== id && a.category === item.category).concat(pool.filter(a => a.id !== id && a.category !== item.category)) : isPage ? live(C.pages).filter(p => p.id !== id) : live(C.services).filter(s => s.id !== id)).slice(0, 3);
+    $('.page-related-list', page).innerHTML = rel.map(r => `<a class="related" href="#${r.kind || kind}/${r.id}">${artImg(r)}<span><b>${esc(r.title || r.name)}</b><em>${esc(isArticle ? r.category : isPage ? r.kicker : 'Counseling')}</em></span></a>`).join('');
     $('.page-foot', page).hidden = isPage && id === 'privacy';
-    $('.page-foot p', page).textContent = isPage ? (id === 'course' ? 'Not sure the course is the right fit?' : 'Questions about fees or your plan?') : 'Does this sound like your situation?';
+    $('.page-foot p', page).textContent = isQuiz ? 'Want to talk through your result?' : isPage ? (id === 'course' ? 'Not sure the course is the right fit?' : 'Questions about fees or your plan?') : 'Does this sound like your situation?';
+    const qf = $('form[data-quiz]', body);
+    if (qf) bindQuiz(qf, item.quiz);
     const quiz = $('#quiz-form', body);
-    if (quiz) quiz.addEventListener('submit', e => {
+    if (quiz && !quiz.dataset.quiz) quiz.addEventListener('submit', e => {
       e.preventDefault();
       const groups = $$('fieldset', quiz); let total = 0, answered = 0;
       groups.forEach(g => { const c = $('input:checked', g); if (c) { total += +c.value; answered++; } });
@@ -296,7 +339,7 @@
     page.hidden = true; resPage.hidden = true; sections().forEach(s => s.hidden = false); document.body.classList.remove('page-open');
   }
   function route() {
-    const m = location.hash.match(/^#(article|service|page)\/([\w-]+)/);
+    const m = location.hash.match(/^#(article|service|page|quiz)\/([\w-]+)/);
     if (m) { openPage(m[1], m[2], true); return; }
     const r = location.hash.match(/^#resources(\?.*)?$/);
     if (r) { openResources(r[1] ? r[1].slice(1) : ''); return; }
@@ -349,7 +392,13 @@
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
   $('[data-year]').textContent = new Date().getFullYear();
 
-  renderServices(); renderExplorer(); renderAudience(); renderSteps(); renderStories(); renderAbout(); renderApproach(); renderWays(); renderResources(); renderFaq();
-  applyImages();
-  route();
+  function start() {
+    buildLinkMap(); renderHero(); renderServices(); renderExplorer(); renderAudience(); renderSteps(); renderStories(); renderAbout(); renderApproach(); renderWays(); renderResources(); renderFaq();
+    applyImages();
+    route();
+    if (window.LIVE_PREVIEW) { const b = document.createElement('div'); b.className = 'preview-badge'; b.textContent = 'Preview of the unpublished draft'; document.body.appendChild(b); }
+  }
+  /* content published from the dashboard (js/live.js) takes over from the baked copy when it arrives */
+  if (window.LIVE_CONTENT && typeof window.LIVE_CONTENT.then === 'function') window.LIVE_CONTENT.then(c => { if (c && typeof c === 'object' && c.articles) C = window.CONTENT = c; }).catch(() => {}).then(start);
+  else start();
 })();

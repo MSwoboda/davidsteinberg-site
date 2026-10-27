@@ -49,12 +49,12 @@
   }
 
   /* ---- questionnaire ---- */
-  async function showQuestionnaire(id) {
+  async function showQuestionnaire(id, retake) {
     const q = (questionnaires && questionnaires.find(x => x.id === id)) || await API.getQuestionnaire(id);
     if (!q) { location.hash = ''; return; }
     const existing = await API.getResponse(id);
-    if (existing && existing.status === 'submitted') return showDone(q, existing);
-    const answers = (existing && existing.answers) || {};
+    if (existing && existing.status === 'submitted' && !retake) return showDone(q, existing);
+    const answers = retake ? {} : (existing && existing.answers) || {};
     const n = tpl('t-questionnaire');
     n.querySelector('[data-kind]').textContent = q.kind === 'couples' ? 'Couples questionnaire · answer for yourself' : 'Questionnaire';
     n.querySelector('[data-title]').textContent = q.title;
@@ -66,19 +66,20 @@
       let input = '';
       if (type === 'likert') input = `<div class="choices">${scale.labels.map((l, k) => `<label><input type="radio" name="${name}" value="${scale.values[k]}" ${String(cur) === String(scale.values[k]) ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>`;
       else if (type === 'yesno') input = `<div class="choices">${['yes', 'no'].map(v => `<label><input type="radio" name="${name}" value="${v}" ${cur === v ? 'checked' : ''}><span>${v === 'yes' ? 'Yes' : 'No'}</span></label>`).join('')}</div>`;
+      else if (type === 'choice') input = `<div class="choices">${(it.options || []).map(o => `<label><input type="radio" name="${name}" value="${esc(o.value)}" ${String(cur) === String(o.value) ? 'checked' : ''}><span>${esc(o.label)}</span></label>`).join('')}</div>`;
       else input = `<div class="field"><textarea name="${name}" rows="3" placeholder="Your answer">${esc(cur || '')}</textarea></div>`;
       return `<div class="q-item"><div class="q-text">${i + 1}. ${esc(it.text)}</div>${input}</div>`;
     }).join('');
-    const collect = () => { const out = {}; q.items.forEach(it => { const type = it.type || scale.type || 'likert'; const el = form.elements['i_' + it.id]; if (!el) return; if (type === 'text') { if (el.value.trim()) out[it.id] = el.value.trim(); } else { const v = el.value; if (v) out[it.id] = type === 'likert' ? Number(v) : v; } }); return out; };
+    const collect = () => { const out = {}; q.items.forEach(it => { const type = it.type || scale.type || 'likert'; const el = form.elements['i_' + it.id]; if (!el) return; if (type === 'text') { if (el.value.trim()) out[it.id] = el.value.trim(); } else { const v = el.value; if (v) out[it.id] = type === 'likert' ? Number(v) : type === 'choice' && !isNaN(Number(v)) ? Number(v) : v; } }); return out; };
     const progress = n.querySelector('[data-progress]');
     const upd = () => { const a = collect(); progress.style.width = Math.round(100 * Object.keys(a).length / q.items.length) + '%'; };
     form.addEventListener('input', upd); form.addEventListener('change', upd);
     const saved = n.querySelector('[data-saved]');
-    n.querySelector('[data-save]').addEventListener('click', async e => { e.target.disabled = true; await API.saveResponse(id, collect(), 'in-progress'); saved.textContent = 'Saved.'; e.target.disabled = false; setTimeout(() => location.hash = '', 500); });
+    n.querySelector('[data-save]').addEventListener('click', async e => { e.target.disabled = true; await API.saveResponse(id, collect(), 'in-progress', retake); retake = false; saved.textContent = 'Saved.'; e.target.disabled = false; setTimeout(() => location.hash = '', 500); });
     n.querySelector('[data-submit]').addEventListener('click', async e => {
       const a = collect(); const missing = q.items.filter(it => (it.type || scale.type) !== 'text' && a[it.id] == null);
       if (missing.length) { saved.textContent = `${missing.length} item${missing.length > 1 ? 's' : ''} left to answer.`; const el = form.elements['i_' + missing[0].id]; (el[0] || el).focus(); (el[0] || el).closest('.q-item').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-      e.target.disabled = true; const r = await API.saveResponse(id, a, 'submitted'); showDone(q, r);
+      e.target.disabled = true; const r = await API.saveResponse(id, a, 'submitted', retake); showDone(q, r);
     });
     n.querySelector('[data-back]').addEventListener('click', ev => { ev.preventDefault(); location.hash = ''; });
     render(n); upd();
@@ -87,7 +88,7 @@
   function score(q, answers) {
     const sc = q.scoring || {}; if (!sc.method || sc.method === 'none') return null;
     const scale = q.scale || {}; const vals = scale.values || [1, 2, 3, 4]; const max = Math.max(...vals), min = Math.min(...vals);
-    const nums = q.items.filter(it => (it.type || scale.type || 'likert') === 'likert').map(it => { let v = Number(answers[it.id]); if (isNaN(v)) return null; if ((sc.reverse || []).includes(it.id)) v = max + min - v; return v; }).filter(v => v != null);
+    const nums = q.items.filter(it => ['likert', 'choice', 'yesno'].includes(it.type || scale.type || 'likert')).map(it => { const t = it.type || scale.type || 'likert'; let v = t === 'yesno' ? (answers[it.id] === 'yes' ? 1 : answers[it.id] === 'no' ? 0 : NaN) : Number(answers[it.id]); if (isNaN(v)) return null; if (it.reverse || (sc.reverse || []).includes(it.id)) { const r = t === 'likert' ? [min, max] : t === 'yesno' ? [0, 1] : [Math.min(...(it.options || []).map(o => +o.value)), Math.max(...(it.options || []).map(o => +o.value))]; v = r[1] + r[0] - v; } return v; }).filter(v => v != null);
     if (!nums.length) return null;
     const total = sc.method === 'mean' ? nums.reduce((a, b) => a + b, 0) / nums.length : nums.reduce((a, b) => a + b, 0);
     const band = (sc.bands || []).find(b => total <= b.max);
@@ -96,6 +97,8 @@
   function showDone(q, r) {
     const n = tpl('t-done'); const s = score(q, r.answers || {});
     n.querySelector('[data-score]').textContent = s && q.kind === 'self' ? `Your result: ${s.total}${s.label ? ' — ' + s.label : ''}.` : '';
+    const rt = n.querySelector('[data-retake]'); rt.hidden = false; n.querySelector('[data-retake-note]').hidden = false;
+    rt.addEventListener('click', () => showQuestionnaire(q.id, true));
     render(n);
   }
 
