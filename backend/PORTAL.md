@@ -56,7 +56,7 @@ skipped.
    `app/firebase-config.js`. (These are public identifiers; the rules do the protecting.)
 3. **Staff list and salt**: in `backend/functions/.env` set `STAFF_EMAILS=michswo@gmail.com` (add David's later)
    and `TRAFFIC_SALT=` any long random string.
-4. **Deploy**: `cd backend && npx firebase-tools deploy --only functions,firestore` — deploys the four functions,
+4. **Deploy**: from the repo root, `npx firebase-tools deploy --only functions,firestore` — deploys the functions,
    the rules, and the indexes.
 5. **Questionnaires**: open `/admin/`, Questionnaires → Import JSON → `backend/questionnaires/self-check.json`,
    then the fourteen instruments.
@@ -78,6 +78,15 @@ Accept the Google Cloud BAA for the project (Cloud console → IAM & Admin → S
 Business Associate Amendment). Firestore, Cloud Functions, Cloud Run, Secret Manager and Firebase Authentication /
 Identity Platform are covered services. The Gmail notification for consultation requests carries contact details
 only, not clinical content; the portal never emails answers.
+
+## Hosting
+
+The site, portal and dashboard are also served by Firebase Hosting: https://davidsteinberg-site.web.app (and
+`.firebaseapp.com`). `firebase.json` at the repo root serves the repo itself, minus `backend/`, `tools/` and
+`content/`. Deploy with `npx firebase-tools deploy --only hosting` from the repo root. GitHub Pages
+(https://mswoboda.github.io/davidsteinberg-site/) keeps working from the same files. The custom domain
+davidsteinberg.com can be attached either here (Hosting → Add custom domain) or on GitHub Pages; the Cloudflare
+plan below works in front of either.
 
 ## US-only access (planned)
 

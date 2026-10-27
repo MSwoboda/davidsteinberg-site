@@ -14,12 +14,11 @@ form (browser) ──POST JSON──▶ consultationRequest (Cloud Function, us-
 1. **Google Cloud project.** In the [Firebase console](https://console.firebase.google.com) add a project (name it e.g. `davidsteinberg-site`). Upgrade it to the **Blaze** plan (pay as you go — a card is required, the bill stays at $0 at this traffic). Enable **Firestore** (production mode, region `us-east4` or `nam5`).
 2. **Gmail app password** for the sending account (for now `michswo@gmail.com`): Google Account → Security → 2-Step Verification must be on → App passwords → create one named "davidsteinberg.com form". Copy the 16-character password.
 3. **Tools, once:** `npm install -g firebase-tools`, then `firebase login`.
-4. In this folder:
+4. From the repo root (`firebase.json` and `.firebaserc` live there; functions, rules and hosting are all configured in it):
    ```sh
-   cd backend
    # point at your project id (replace the id if you named it differently)
    sed -i '' 's/davidsteinberg-site/YOUR_PROJECT_ID/' .firebaserc     # macOS sed; on Linux drop the ''
-   cd functions && npm install && npm test && cd ..
+   cd backend/functions && npm install && npm test && cd ../..
    # functions/.env holds GMAIL_USER and NOTIFY_TO (plain text, not secret) — edit if the addresses change
    firebase functions:secrets:set GMAIL_APP_PASSWORD   # the 16-character app password (or create the secret in the Cloud Console → Secret Manager)
    firebase deploy --only functions,firestore
@@ -47,7 +46,7 @@ To move to David's address later: change `NOTIFY_TO` in `functions/.env` (and, i
 
 ## Local run (optional)
 
-`cd backend && firebase emulators:start --only functions,firestore` with a `functions/.secret.local` file holding `GMAIL_APP_PASSWORD`, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
+`firebase emulators:start --only functions,firestore` (from the repo root) with a `functions/.secret.local` file holding `GMAIL_APP_PASSWORD`, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
 
 ## Next step: the staff view and the client portal
 
