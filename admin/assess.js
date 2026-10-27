@@ -71,13 +71,13 @@
 
   /* ---------- section: list + stats ---------- */
   async function assessments() {
-    const [qs, resps, clients] = await Promise.all([API.listQuestionnaires(), API.listAllResponses(), cache.clients ? Promise.resolve(cache.clients) : API.listClients()]);
+    const [qs, resps, clients] = await Promise.all([A.L.qs(), A.L.resps(), A.L.clients()]);
     cache.qs = qs; cache.resps = resps; cache.clients = clients;
     const byQ = id => resps.filter(r => r.qid === id);
     const assignedCount = id => clients.filter(c => (c.assigned || []).includes(id)).length;
     const pending = resps.filter(r => r.status === 'submitted' && !r.reviewedAt).sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
     const pseud = uid => { const c = clients.find(x => x.uid === uid); return c ? c.pseudonym : uid; };
-    A.main.innerHTML = `<div class="row between" style="margin-bottom:14px"><h1 style="margin:0">Assessments</h1><div class="row"><button class="btn" data-import type="button">Import JSON</button><button class="btn primary" data-new type="button">New assessment</button></div></div>
+    A.main.innerHTML = `<div class="row between" style="margin-bottom:14px"><h1 style="margin:0">Assessments</h1><div class="row"><button class="btn" data-template type="button">Template for an LLM</button><button class="btn" data-import type="button">Import JSON</button><button class="btn primary" data-new type="button">New assessment</button></div></div>
       <p class="muted small">Questionnaires, screening tools and intake forms clients complete in the portal. Assign them from a client's page; results come back here and on the client's page.</p>
       ${pending.length ? `<section class="card" style="margin-bottom:16px"><h2>To review <span class="chip warn">${pending.length}</span></h2><div class="table-wrap"><table class="table"><tbody>${pending.slice(0, 8).map(r => { const q = qs.find(x => x.id === r.qid); const s = q ? score(q, r.answers) : null; return `<tr class="clickable" data-open="${esc(r.id)}"><td><strong>${esc(pseud(r.uid))}</strong><br><span class="muted small">${esc(q ? q.title : r.qid)}${r.attempt > 1 ? ' · attempt ' + r.attempt : ''}</span></td><td>${s ? `<strong>${fmtScore(s)}</strong> ${s.label ? chip({ x: [s.label, bandTone(q, s)] }, 'x') : ''}` : ''}</td><td class="small muted">${fmtDate(r.submittedAt)}</td><td class="actions"><button class="btn sm" type="button">Open</button></td></tr>`; }).join('')}</tbody></table></div></section>` : ''}
       <section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Instrument</th><th>Kind</th><th>Items</th><th>Assigned</th><th>Submitted</th><th>Average</th><th>Last</th><th></th></tr></thead><tbody>
@@ -86,17 +86,56 @@
       </tbody></table></div></section>`;
     $('[data-new]', A.main).addEventListener('click', () => builder(null));
     $('[data-import]', A.main).addEventListener('click', importJson);
+    $('[data-template]', A.main).addEventListener('click', template);
     $$('[data-edit]', A.main).forEach(b => b.addEventListener('click', () => builder(qs.find(x => x.id === b.dataset.edit))));
     $$('[data-prev]', A.main).forEach(b => b.addEventListener('click', () => preview(qs.find(x => x.id === b.dataset.prev))));
     $$('[data-export]', A.main).forEach(b => b.addEventListener('click', () => exportJson(qs.find(x => x.id === b.dataset.export))));
-    $$('[data-del]', A.main).forEach(b => b.addEventListener('click', async () => { if (!confirm('Remove "' + b.dataset.del + '" from the portal? Answers already given are kept.')) return; await API.deleteQuestionnaire(b.dataset.del); assessments(); }));
+    $$('[data-del]', A.main).forEach(b => b.addEventListener('click', async () => { if (!confirm('Remove "' + b.dataset.del + '" from the portal? Answers already given are kept.')) return; await API.deleteQuestionnaire(b.dataset.del); A.drop('questionnaires'); assessments(); }));
     $$('[data-open]', A.main).forEach(tr => tr.addEventListener('click', () => { const r = resps.find(x => x.id === tr.dataset.open); const c = clients.find(x => x.uid === r.uid); if (c) results(c, r.qid); }));
   }
 
   function importJson() {
     drawer(`<p class="kicker">Import</p><h2>Assessment JSON</h2><p class="muted small">One instrument per file — see <code>backend/questionnaires/TEMPLATE.json</code>. An existing id is replaced; answers already given are kept.</p><div class="field"><label>Choose a file</label><input type="file" accept="application/json,.json" data-file></div><div class="field"><label>or paste JSON</label><textarea data-json rows="14" class="mono" placeholder='{ "id": "...", "title": "...", "items": [ ... ] }'></textarea></div><div class="row"><button class="btn primary" data-go type="button">Import</button><span class="small" data-msg></span></div>`);
     const d = $('#drawer'); $('[data-file]', d).addEventListener('change', e => { const f = e.target.files[0]; if (f) f.text().then(t => { $('[data-json]', d).value = t; }); });
-    $('[data-go]', d).addEventListener('click', async e => { const msg = $('[data-msg]', d); try { const doc = JSON.parse($('[data-json]', d).value); const err = validate(doc); if (err) { msg.textContent = err; return; } e.target.disabled = true; await API.upsertQuestionnaire(normalize(doc)); closeDrawer(); assessments(); } catch (err) { msg.textContent = 'Not valid JSON: ' + err.message; } });
+    $('[data-go]', d).addEventListener('click', async e => { const msg = $('[data-msg]', d); try { const doc = JSON.parse($('[data-json]', d).value); const err = validate(doc); if (err) { msg.textContent = err; return; } e.target.disabled = true; await API.upsertQuestionnaire(normalize(doc)); A.drop('questionnaires'); closeDrawer(); assessments(); } catch (err) { msg.textContent = 'Not valid JSON: ' + err.message; } });
+  }
+  const TEMPLATE = {
+    id: 'short-id-with-dashes', title: 'Title the client sees', kind: 'self | couples | intake | screening',
+    instructions: 'One or two sentences shown above the items.',
+    scale: { type: 'likert', labels: ['Rarely', 'Sometimes', 'Often', 'Almost always'], values: [1, 2, 3, 4] },
+    items: [
+      { id: 'q1', text: 'A statement the client rates on the scale.' },
+      { id: 'q2', text: 'A reverse-scored statement.', reverse: true, subscale: 'Repair' },
+      { id: 'q3', text: 'A yes/no item.', type: 'yesno' },
+      { id: 'q4', text: 'A multiple-choice item.', type: 'choice', options: [{ label: 'Never', value: 0 }, { label: 'Once', value: 1 }, { label: 'Weekly', value: 2 }] },
+      { id: 'q5', text: 'A free-text item (not scored).', type: 'text' },
+    ],
+    scoring: { method: 'sum | mean | none', higher_is_worse: false, bands: [{ max: 8, label: 'Label the client sees for the lowest band', guidance: 'Note for the clinician' }, { max: 16, label: 'Middle band' }, { max: 24, label: 'Highest band' }] },
+    notes: 'Staff-only notes: source, cut-offs, how to read it.',
+  };
+  function template() {
+    const json = JSON.stringify(TEMPLATE, null, 2);
+    const prompt = `Convert the questionnaire below into JSON with exactly this shape. Rules: "id" is lowercase letters, digits and dashes; every item has a unique "id" and a "text"; items without a "type" use the shared scale; use "type": "yesno" for yes/no items, "choice" with "options" (label + numeric value) for multiple choice, "text" for free answers; set "reverse": true on reverse-scored items; put the subscale name in "subscale" when the instrument has subscales; "scoring.bands" lists the cut-offs with "max" = the highest total in that band, lowest band first; set "higher_is_worse": true for symptom scales. Return only the JSON.
+
+SHAPE:
+${json}
+
+QUESTIONNAIRE:
+(paste the instrument here)`;
+    drawer(`<p class="kicker">Template</p><h2>Build one with an LLM</h2><p class="muted small">Copy the prompt, paste the instrument's text under it in ChatGPT, Claude or Gemini, then paste the JSON it returns into <strong>Import JSON</strong>. Or build by hand with <strong>New assessment</strong>.</p>
+      <div class="field"><label>Prompt (shape included)</label><textarea class="mono" rows="18" readonly data-prompt>${esc(prompt)}</textarea></div>
+      <div class="row"><button class="btn primary" data-copy-prompt type="button">Copy prompt</button><button class="btn" data-copy-json type="button">Copy shape only</button><span class="small muted" data-msg></span></div>
+      <p class="kicker" style="margin-top:18px">Field reference</p>
+      <table class="table small"><tbody>
+        <tr><td class="mono">kind</td><td>self (one person) · couples (each partner answers separately, shown side by side) · intake · screening</td></tr>
+        <tr><td class="mono">scale</td><td>labels and numeric values, same length; items without a type use it</td></tr>
+        <tr><td class="mono">items[].type</td><td>yesno · choice (with options) · text; leave out for the scale</td></tr>
+        <tr><td class="mono">reverse</td><td>true flips the item's value (max + min − value)</td></tr>
+        <tr><td class="mono">subscale</td><td>groups items; results show a bar per subscale</td></tr>
+        <tr><td class="mono">scoring</td><td>method sum / mean / none; bands with max, label (client sees), guidance (you see); higher_is_worse for symptom scales</td></tr>
+      </tbody></table>`);
+    const d = $('#drawer'); const copy = async (txt, label) => { try { await navigator.clipboard.writeText(txt); $('[data-msg]', d).textContent = label + ' copied.'; } catch (e) { $('[data-prompt]', d).select(); $('[data-msg]', d).textContent = 'Select and copy the text.'; } };
+    $('[data-copy-prompt]', d).addEventListener('click', () => copy(prompt, 'Prompt')); $('[data-copy-json]', d).addEventListener('click', () => copy(json, 'Shape'));
   }
   function exportJson(q) {
     const txt = JSON.stringify(q, null, 2);
@@ -182,15 +221,16 @@
       q.scoring = { method: f('method').value, bands: q.scoring.bands, higher_is_worse: f('higher_is_worse').checked };
       q.items = q.items.filter(it => it.text);
       const err = validate(q); if (err) { $('[data-msg]', d).textContent = err; return; }
-      e.target.disabled = true; try { await API.upsertQuestionnaire(q); closeDrawer(); assessments(); } catch (err) { $('[data-msg]', d).textContent = 'Could not save: ' + (err.message || err); e.target.disabled = false; }
+      e.target.disabled = true; try { await API.upsertQuestionnaire(q); A.drop('questionnaires'); closeDrawer(); assessments(); } catch (err) { $('[data-msg]', d).textContent = 'Could not save: ' + (err.message || err); e.target.disabled = false; }
     });
   }
   const nextId = q => { let n = q.items.length + 1; while (q.items.some(it => it.id === 'q' + n)) n++; return 'q' + n; };
 
   /* ---------- results for one client + instrument (couples side by side) ---------- */
   async function results(c, qid) {
-    if (!cache.qs) cache.qs = await API.listQuestionnaires();
-    if (!cache.couples) cache.couples = await API.listCouples();
+    if (!cache.qs) cache.qs = await A.L.qs();
+    if (!cache.couples) cache.couples = await A.L.couples();
+    if (!cache.clients) cache.clients = await A.L.clients();
     const q = cache.qs.find(x => x.id === qid); if (!q) return;
     const couple = cache.couples.find(k => k.id === c.coupleId); const partner = couple && (cache.clients || []).find(x => x.uid === couple.members.find(m => m !== c.uid));
     const [mine, theirs] = await Promise.all([API.listResponsesFor(c.uid), partner ? API.listResponsesFor(partner.uid) : Promise.resolve([])]);
@@ -218,7 +258,7 @@
     if (r) {
       const me = API.currentUser();
       $('[data-savenote]', d).addEventListener('click', async e => { e.target.disabled = true; const patch = { staffNote: $('[data-note]', d).value.trim() }; await API.updateResponse(r.id || `${c.uid}_${qid}`, patch); Object.assign(r, patch); $('[data-msg]', d).textContent = 'Saved.'; e.target.disabled = false; });
-      const rv = $('[data-reviewed]', d); if (rv) rv.addEventListener('click', async () => { rv.disabled = true; const patch = { reviewedAt: new Date().toISOString(), reviewedBy: me ? me.email : '' }; await API.updateResponse(r.id || `${c.uid}_${qid}`, patch); Object.assign(r, patch); rv.textContent = 'Reviewed ' + fmtDay(patch.reviewedAt); if (cache.resps) { const x = cache.resps.find(y => y.id === (r.id || `${c.uid}_${qid}`)); if (x) Object.assign(x, patch); } });
+      const rv = $('[data-reviewed]', d); if (rv) rv.addEventListener('click', async () => { rv.disabled = true; const patch = { reviewedAt: new Date().toISOString(), reviewedBy: me ? me.email : '' }; await API.updateResponse(r.id || `${c.uid}_${qid}`, patch); Object.assign(r, patch); A.drop('resps'); rv.textContent = 'Reviewed ' + fmtDay(patch.reviewedAt); if (cache.resps) { const x = cache.resps.find(y => y.id === (r.id || `${c.uid}_${qid}`)); if (x) Object.assign(x, patch); } });
     }
   }
   function sparkline(trend) {

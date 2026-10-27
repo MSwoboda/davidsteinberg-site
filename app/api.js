@@ -41,7 +41,7 @@
     for (let i = 29; i >= 0; i--) {
       const d = daysAgo(i); const day = d.toISOString().slice(0, 10); const wk = d.getUTCDay();
       const base = (wk === 0 || wk === 6) ? 18 : 34; const views = Math.round(base + 14 * Math.sin(i / 3) + (i % 7) * 2);
-      traffic.push({ day, views, uniques: Math.round(views * 0.62), paths: { '_davidsteinberg-site_': Math.round(views * 0.7), '_davidsteinberg-site_sage_': Math.round(views * 0.3) }, routes: { '_article_rage-is-the-new-hurt': Math.round(views * 0.12), '_service_couples': Math.round(views * 0.1), '_page_fees': Math.round(views * 0.08), '_article_3-deadly-relationship-killing-mistakes': Math.round(views * 0.06) }, concepts: { civic: Math.round(views * 0.5), nouveau: Math.round(views * 0.2), sage: Math.round(views * 0.3) }, devices: { phone: Math.round(views * 0.58), desktop: Math.round(views * 0.36), tablet: Math.round(views * 0.06) }, referrers: { google_com: Math.round(views * 0.4), 'psychologytoday_com': Math.round(views * 0.08), 'chatgpt_com': Math.round(views * 0.05), 'bing_com': Math.round(views * 0.03) } });
+      traffic.push({ day, views, uniques: Math.round(views * 0.62), paths: { '_davidsteinberg-site_': Math.round(views * 0.7), '_davidsteinberg-site_sage_': Math.round(views * 0.3) }, routes: { '_article_rage-is-the-new-hurt': Math.round(views * 0.12), '_service_couples': Math.round(views * 0.1), '_page_fees': Math.round(views * 0.08), '_article_3-deadly-relationship-killing-mistakes': Math.round(views * 0.06) }, concepts: { civic: Math.round(views * 0.5), nouveau: Math.round(views * 0.2), sage: Math.round(views * 0.3) }, devices: { phone: Math.round(views * 0.58), desktop: Math.round(views * 0.36), tablet: Math.round(views * 0.06) }, referrers: { google_com: Math.round(views * 0.4), 'psychologytoday_com': Math.round(views * 0.08), 'chatgpt_com': Math.round(views * 0.05), 'bing_com': Math.round(views * 0.03) }, countries: { US: Math.round(views * 0.86), CA: Math.round(views * 0.05), GB: Math.round(views * 0.03), DE: Math.round(views * 0.02), ZZ: Math.round(views * 0.04) }, regions: { 'US-Pennsylvania': Math.round(views * 0.55), 'US-New_Jersey': Math.round(views * 0.12), 'US-New_York': Math.round(views * 0.1), 'US-Delaware': Math.round(views * 0.04) }, flows: { '_>_services': Math.round(views * 0.3), '_services>_contact': Math.round(views * 0.12), '_>_article_rage-is-the-new-hurt': Math.round(views * 0.1), '_article_rage-is-the-new-hurt>_contact': Math.round(views * 0.04), '_>_faq': Math.round(views * 0.08), '_faq>_contact': Math.round(views * 0.05), '_>_page_fees': Math.round(views * 0.07) } });
     }
     const audit = [{ at: iso(daysAgo(1)), by: 'michswo@gmail.com', action: 'identity', target: 'u-quiet-heron' }, { at: iso(daysAgo(3)), by: 'michswo@gmail.com', action: 'list-identities', count: 5 }];
     responses['u-quiet-heron_self-check'].attempt = 2; responses['u-quiet-heron_self-check'].history = [{ answers: { q1: 2, q2: 1, q3: 2, q4: 3, q5: 2, q6: 2 }, submittedAt: iso(daysAgo(40)), attempt: 1 }];
@@ -69,6 +69,9 @@
       async listMyResponses() { return Object.values(responses).filter(r => r.uid === user.uid).map(clone); },
       async listRequests() { return clone(requests).sort((a, b) => b.received.localeCompare(a.received)); },
       async updateRequest(id, patch) { const r = requests.find(x => x.id === id); Object.assign(r, patch, { updatedAt: iso(new Date()) }); return clone(r); },
+      async deleteRequest(id) { const i = requests.findIndex(x => x.id === id); if (i >= 0) requests.splice(i, 1); },
+      async listHits() { const out = []; const routes = ['', '#services', '#article/rage-is-the-new-hurt', '#faq', '#contact', '#page/fees', '#quiz/toward-or-away']; const geos = [['US', 'Pennsylvania', 'Philadelphia'], ['US', 'Pennsylvania', 'Philadelphia'], ['US', 'New Jersey', 'Cherry Hill'], ['US', 'New York', 'Brooklyn'], ['CA', 'Ontario', 'Toronto'], ['DE', 'Berlin', 'Berlin']]; for (let i = 0; i < 60; i++) { const g = geos[i % geos.length]; const sid = 's' + (i % 14); const r = routes[i % routes.length]; out.push({ id: 'h' + i, at: iso(new Date(Date.now() - i * 37 * 60000)), sid, visitor: 'v' + (i % 14), path: '/', route: r, prev: i % 3 ? routes[(i + 2) % routes.length] : '', ref: i % 5 === 0 ? 'google.com' : '', device: ['phone', 'desktop', 'tablet'][i % 3], country: g[0], region: g[1], city: g[2], ipMask: g[0] === 'US' ? '71.' + (160 + i % 9) + '.x.x' : '185.' + (20 + i % 7) + '.x.x', first: i % 4 === 0 }); } return out; },
+      async listClientAccounts() { return clone(clients); },
       async listClients() { return clone(clients); },
       async updateClient(uid, patch) { const c = clients.find(x => x.uid === uid); Object.assign(c, patch); return clone(c); },
       async clientIdentity(uid) { const c = clients.find(x => x.uid === uid); audit.unshift({ at: iso(new Date()), by: user.email, action: 'identity', target: uid }); return { email: c.email, displayName: c.displayName }; },
@@ -110,7 +113,12 @@
       async signIn() { const { A, auth } = await ready; const p = new A.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await A.signInWithPopup(auth, p); },
       async signOut() { const { A, auth } = await ready; await A.signOut(auth); },
       currentUser() { const u = fb && fb.auth.currentUser; return u ? { uid: u.uid, email: u.email, displayName: u.displayName } : null; },
-      async bootstrap() { const out = await call('bootstrap'); if (out.claimsChanged) { const { auth } = await ready; await auth.currentUser.getIdToken(true); } return out; },
+      async bootstrap() {
+        /* a staff account whose token already carries the claim skips the round trip (the function would only refresh lastSeen) */
+        const { auth } = await ready; const t = await auth.currentUser.getIdTokenResult();
+        if (t.claims.staff && location.pathname.includes('/admin')) return { role: 'staff', pseudonym: 'Staff', status: 'staff', assigned: [], isNew: false, cached: true };
+        const out = await call('bootstrap'); if (out.claimsChanged) await auth.currentUser.getIdToken(true); return out;
+      },
       async getProfile() { const { F } = await ready; const s = await F.getDoc(await docRef('clients', uid())); return s.exists() ? { uid: s.id, ...s.data() } : null; },
       async listQuestionnaires() { return all(await col('questionnaires')); },
       async getQuestionnaire(id) { const { F } = await ready; const s = await F.getDoc(await docRef('questionnaires', id)); return s.exists() ? { id: s.id, ...s.data() } : null; },
@@ -126,7 +134,10 @@
       async listMyResponses() { const { F } = await ready; return all(F.query(await col('responses'), F.where('uid', '==', uid()))); },
       async listRequests() { const { F } = await ready; return all(F.query(await col('requests'), F.orderBy('received', 'desc'), F.limit(500))); },
       async updateRequest(id, patch) { const { F } = await ready; await F.updateDoc(await docRef('requests', id), { ...patch, updatedAt: new Date().toISOString(), updatedBy: fb.auth.currentUser.email }); },
-      async listClients() { return call('listClientAccounts'); },
+      async listClients() { return all(await col('clients')); },            // pseudonyms only, fast (plain Firestore read)
+      async listClientAccounts() { return call('listClientAccounts'); },  // with sign-in emails, through the function (audited)
+      async deleteRequest(id) { const { F } = await ready; await F.deleteDoc(await docRef('requests', id)); },
+      async listHits() { const { F } = await ready; return all(F.query(await col('hits'), F.orderBy('at', 'desc'), F.limit(600))); },
       async updateClient(cid, patch) { const { F } = await ready; await F.updateDoc(await docRef('clients', cid), { ...patch, updatedAt: new Date().toISOString() }); },
       async clientIdentity(cid) { return call('clientIdentity', { uid: cid }); },
       async listCouples() { return all(await col('couples')); },

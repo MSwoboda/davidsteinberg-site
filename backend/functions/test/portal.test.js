@@ -76,9 +76,10 @@ test('identity lookup is staff-only and leaves an audit entry', async () => {
 
 test('page hits aggregate per day without storing the address', async () => {
   const db = fakeDb();
-  const deps = { db, increment, hash: s => 'h' + s.length, now: () => new Date('2026-10-26T20:00:00Z') };
+  let geoCalls = 0;
+  const deps = { db, increment, hash: s => 'h' + s.length + s.replace(/[^a-z0-9]/gi, '').slice(0, 6), now: () => new Date('2026-10-26T20:00:00Z'), geo: async ip => { geoCalls++; return ip === '1.2.3.4' ? { country: 'US', region: 'Pennsylvania', city: 'Philadelphia' } : null; } };
   const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)';
-  await recordHit({ path: '/davidsteinberg-site/', route: '#article/rage-is-the-new-hurt', concept: 'civic', referrer: 'https://www.google.com/', ip: '1.2.3.4', userAgent: ua }, deps);
+  await recordHit({ path: '/davidsteinberg-site/', route: '#article/rage-is-the-new-hurt', prev: '#services', sid: 'abc123', concept: 'civic', referrer: 'https://www.google.com/', ip: '1.2.3.4', userAgent: ua }, deps);
   await recordHit({ path: '/davidsteinberg-site/', route: '', concept: 'civic', referrer: '', ip: '1.2.3.4', userAgent: ua }, deps);
   await recordHit({ path: '/davidsteinberg-site/sage/', concept: 'sage', referrer: 'https://mswoboda.github.io/x', ip: '5.6.7.8', userAgent: 'Mozilla/5.0 (Macintosh)' }, deps);
   const d = db.store['traffic/2026-10-26'];
@@ -87,7 +88,12 @@ test('page hits aggregate per day without storing the address', async () => {
   assert.equal(d.devices.phone, 2); assert.equal(d.devices.desktop, 1);
   assert.equal(d.referrers['google_com'], 1); assert.equal(Object.keys(d.referrers).length, 1, 'own-site referrers are not counted');
   assert.equal(d.routes['_article_rage-is-the-new-hurt'], 1);
-  assert.ok(!JSON.stringify(d).includes('1.2.3.4'));
+  assert.equal(d.countries.US, 2); assert.equal(d.countries.ZZ, 1); assert.equal(d.regions['US-Pennsylvania'], 2);
+  assert.equal(d.flows['_services>_article_rage-is-the-new-hurt'], 1);
+  assert.equal(geoCalls, 2, 'one geo look-up per address, cached after');
+  const hits = Object.entries(db.store).filter(([k]) => k.startsWith('hits/')).map(([, v]) => v);
+  assert.equal(hits.length, 3); assert.equal(hits[0].ipMask, '1.2.x.x'); assert.equal(hits[0].city, 'Philadelphia'); assert.equal(hits[0].first, true); assert.equal(hits[1].first, false);
+  assert.ok(!JSON.stringify(d).includes('1.2.3.4')); assert.ok(!JSON.stringify(hits).includes('1.2.3.4'));
 });
 
 test('device classes', () => {

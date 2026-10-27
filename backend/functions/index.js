@@ -78,6 +78,16 @@ exports.listClientAccounts = onCall({ cors: true }, async (req) => {
   return snap.docs.map(d => { const u = byUid[d.id] || {}; return { uid: d.id, ...d.data(), email: u.email || '', displayName: u.displayName || '', lastSignIn: (u.metadata && u.metadata.lastSignInTime) || '' }; });
 });
 
+/* country / region of an address, from ipapi.co (free tier, no key; called about once per visitor thanks to the cache) */
+async function geoLookup(ip) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 2500);
+  try {
+    const r = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: ctl.signal, headers: { 'User-Agent': 'davidsteinberg.com traffic counter' } });
+    if (!r.ok) return null; const j = await r.json(); if (j.error) return null;
+    return { country: j.country_code || '', region: j.region || '', city: j.city || '' };
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+
 /* ---------- public site: page-view counter (no cookies, no stored address) ---------- */
 exports.pageHit = onRequest({ cors: true }, async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -88,9 +98,10 @@ exports.pageHit = onRequest({ cors: true }, async (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
   const salt = TRAFFIC_SALT.value();
   try {
-    await portal.recordHit({ path: b.path, route: b.route, concept: b.concept, referrer: b.referrer, ip, userAgent: req.headers['user-agent'] }, {
+    await portal.recordHit({ path: b.path, route: b.route, prev: b.prev, sid: b.sid, concept: b.concept, referrer: b.referrer, ip, userAgent: req.headers['user-agent'] }, {
       db: admin.firestore(), increment: n => admin.firestore.FieldValue.increment(n),
       hash: s => crypto.createHash('sha256').update(salt + '|' + s).digest('hex').slice(0, 32),
+      geo: geoLookup,
     });
   } catch (e) { console.error('pageHit', e); }
   res.status(204).end();

@@ -11,7 +11,8 @@ service cloud.firestore {
     match /requests/{id} {
       allow read: if staff();
       allow update: if staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'notes', 'updatedAt', 'updatedBy']);
-      allow create, delete: if false;
+      allow delete: if staff();
+      allow create: if false;
     }
 
     // client profiles: pseudonym, status, couple, assigned questionnaires. Created by the function.
@@ -65,6 +66,10 @@ service cloud.firestore {
       allow write: if false;
       match /visitors/{v} { allow read, write: if false; }
     }
+
+    // recent visits (no address) and the cached country look-ups: written by pageHit, read by staff
+    match /hits/{id} { allow read: if staff(); allow write: if false; }
+    match /geo/{id} { allow read, write: if false; }
 
     match /audit/{id} { allow read: if staff(); allow write: if false; }
     match /{document=**} { allow read, write: if false; }

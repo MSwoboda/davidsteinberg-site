@@ -53,7 +53,7 @@
   async function publish() {
     const note = prompt('Publish this version of the site? Add a short note for the history (optional):', ''); if (note === null) return;
     const v = await API.publishSite(JSON.stringify(C), note.trim()); draftMeta = null; pubMeta = { version: v, updatedAt: v, updatedBy: (API.currentUser() || {}).email, note }; dirty = false;
-    try { localStorage.removeItem('ds-live-content'); } catch (e) {}
+    try { localStorage.removeItem('ds-live-content'); } catch (e) {} A.drop('published');
     header(); alert('Published. The site shows the new content within a minute; visitors who already have the page open see it on their next visit.');
   }
 

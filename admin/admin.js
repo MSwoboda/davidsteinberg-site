@@ -14,6 +14,30 @@
   const chip = (map, s) => { const [l, c] = map[s] || [s, '']; return `<span class="chip ${c}">${esc(l)}</span>`; };
   let me = null, main = null, cache = {};
   const A = window.ADMIN = { $, $$, esc, fmtDate, fmtDay, ago, chip, cache, sections: {}, get main() { return main; } };
+  /* Data cache: every list the dashboard shows is kept in memory and in sessionStorage for TTL ms, so moving between
+     sections is instant and a reload shows the last data at once while a fresh copy loads behind it. A write
+     (save, delete, publish) drops the affected key. */
+  const TTL = { default: 90e3, traffic: 10 * 60e3, hits: 5 * 60e3, questionnaires: 10 * 60e3, audit: 5 * 60e3 };
+  const mem = {}; const sKey = k => 'ds-cache-' + k;
+  async function cached(key, fn, { force = false, onFresh } = {}) {
+    const ttl = TTL[key] || TTL.default; const now = Date.now();
+    let hit = mem[key]; if (!hit) { try { hit = JSON.parse(sessionStorage.getItem(sKey(key)) || 'null'); if (hit) mem[key] = hit; } catch (e) {} }
+    const fresh = hit && now - hit.at < ttl;
+    if (hit && !force) {
+      if (!fresh) fn().then(data => { store(key, data); if (onFresh) onFresh(data); }).catch(() => {});   // stale: show now, refresh behind
+      return hit.data;
+    }
+    const data = await fn(); store(key, data); return data;
+  }
+  function store(key, data) { mem[key] = { at: Date.now(), data }; try { sessionStorage.setItem(sKey(key), JSON.stringify(mem[key])); } catch (e) {} }
+  function drop(...keys) { keys.forEach(k => { delete mem[k]; try { sessionStorage.removeItem(sKey(k)); } catch (e) {} }); }
+  A.cached = cached; A.drop = drop;
+  const L = {
+    reqs: () => cached('reqs', () => API.listRequests()), clients: () => cached('clients', () => API.listClients()), accounts: () => cached('accounts', () => API.listClientAccounts()),
+    traffic: () => cached('traffic', () => API.listTraffic()), hits: () => cached('hits', () => API.listHits()), resps: () => cached('resps', () => API.listAllResponses()),
+    qs: () => cached('questionnaires', () => API.listQuestionnaires()), couples: () => cached('couples', () => API.listCouples()), audit: () => cached('audit', () => API.listAudit()),
+  };
+  A.L = L;
 
   const root = document.documentElement;
   try { const t = localStorage.getItem('ds-mode'); if (t === 'dark' || t === 'light') root.dataset.theme = t; } catch (e) {}
@@ -27,7 +51,7 @@
 
   /* ---------- overview ---------- */
   async function overview() {
-    const [reqs, clients, traffic, resps, qs, published] = await Promise.all([API.listRequests(), API.listClients(), API.listTraffic(), API.listAllResponses(), API.listQuestionnaires(), API.getSite('published').catch(() => null)]);
+    const [reqs, clients, traffic, resps, qs, published] = await Promise.all([L.reqs(), L.clients(), L.traffic(), L.resps(), L.qs(), cached('published', () => API.getSite('published').catch(() => null))]);
     Object.assign(cache, { reqs, clients, traffic, resps, qs });
     const twoDays = Date.now() - 2 * 864e5;
     const attention = [
@@ -64,7 +88,7 @@
   /* ---------- requests ---------- */
   let reqFilter = 'open';
   async function requests() {
-    const reqs = cache.reqs = await API.listRequests();
+    const reqs = cache.reqs = await L.reqs();
     const show = reqs.filter(r => reqFilter === 'all' ? true : reqFilter === 'open' ? r.status !== 'closed' : r.status === reqFilter);
     main.innerHTML = `<div class="row between" style="margin-bottom:14px"><h1 style="margin:0">Consultation requests</h1><div class="pill-tabs">${['open', 'new', 'called', 'scheduled', 'closed', 'all'].map(f => `<button type="button" data-f="${f}" aria-selected="${f === reqFilter}">${f[0].toUpperCase() + f.slice(1)}</button>`).join('')}</div></div>
       <section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Received</th><th>Name</th><th>Looking for</th><th>Meet</th><th>Insurance</th><th>Status</th><th></th></tr></thead><tbody>
@@ -88,13 +112,14 @@
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div class="field"><label>Status</label><select data-status>${Object.keys(STATUS).map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${STATUS[s][0]}</option>`).join('')}</select></div>
       <div class="field"><label>Notes</label><textarea data-notes placeholder="Called, left message, scheduled for…">${esc(r.notes || '')}</textarea></div>
-      <div class="row"><button class="btn primary" data-save type="button">Save</button><span class="muted small" data-msg>${r.updatedAt ? 'Last updated ' + fmtDate(r.updatedAt) + (r.updatedBy ? ' by ' + esc(r.updatedBy) : '') : ''}</span></div>`);
-    $('#drawer [data-save]').addEventListener('click', async e => { e.target.disabled = true; const patch = { status: $('#drawer [data-status]').value, notes: $('#drawer [data-notes]').value.trim() }; await API.updateRequest(id, patch); Object.assign(r, patch); $('#drawer [data-msg]').textContent = 'Saved.'; e.target.disabled = false; route(); });
+      <div class="row"><button class="btn primary" data-save type="button">Save</button><button class="btn danger" data-delete type="button">Delete</button><span class="muted small" data-msg>${r.updatedAt ? 'Last updated ' + fmtDate(r.updatedAt) + (r.updatedBy ? ' by ' + esc(r.updatedBy) : '') : ''}</span></div>`);
+    $('#drawer [data-save]').addEventListener('click', async e => { e.target.disabled = true; const patch = { status: $('#drawer [data-status]').value, notes: $('#drawer [data-notes]').value.trim() }; await API.updateRequest(id, patch); Object.assign(r, patch); store('reqs', cache.reqs); $('#drawer [data-msg]').textContent = 'Saved.'; e.target.disabled = false; route(); });
+    $('#drawer [data-delete]').addEventListener('click', async e => { if (!confirm('Delete the request from ' + r.name + '? This cannot be undone.')) return; e.target.disabled = true; await API.deleteRequest(id); cache.reqs = cache.reqs.filter(x => x.id !== id); store('reqs', cache.reqs); closeDrawer(); route(); });
   }
 
   /* ---------- clients ---------- */
   async function clients() {
-    const [cl, couples, qs] = await Promise.all([API.listClients(), API.listCouples(), API.listQuestionnaires()]);
+    const [cl, couples, qs] = await Promise.all([L.accounts(), L.couples(), L.qs()]);
     cache.clients = cl; cache.couples = couples; cache.qs = qs;
     const people = cl.filter(c => c.status !== 'staff').sort((a, b) => (b.lastSeen || '').localeCompare(a.lastSeen || ''));
     const coupleLabel = c => { const k = couples.find(x => x.id === c.coupleId); if (!k) return '—'; const other = k.members.find(m => m !== c.uid); const o = cl.find(x => x.uid === other); return 'with ' + esc(o ? o.pseudonym : '?'); };
@@ -107,7 +132,7 @@
     $('[data-pair]', main).addEventListener('click', pairCouple);
   }
   async function openClient(uid) {
-    if (!cache.clients) { cache.clients = await API.listClients(); } if (!cache.qs) cache.qs = await API.listQuestionnaires(); if (!cache.couples) cache.couples = await API.listCouples();
+    if (!cache.clients || !cache.clients.some(x => x.uid === uid)) { cache.clients = await L.accounts(); } if (!cache.qs) cache.qs = await L.qs(); if (!cache.couples) cache.couples = await L.couples();
     const c = cache.clients.find(x => x.uid === uid); if (!c) return;
     const resp = await API.listResponsesFor(uid);
     const couple = cache.couples.find(k => k.id === c.coupleId); const partner = couple && cache.clients.find(x => x.uid === couple.members.find(m => m !== uid));
@@ -132,7 +157,7 @@
     const d = $('#drawer');
     const rev = $('[data-reveal]', d); if (rev) rev.addEventListener('click', async () => { rev.disabled = true; const i = await API.clientIdentity(uid); $('[data-identity]', d).innerHTML = `<strong>${esc(i.displayName || '')}</strong> · ${esc(i.email)}`; Object.assign(c, i); });
     $$('[data-view], [data-res]', d).forEach(a => a.addEventListener('click', e => { e.preventDefault(); A.assess.results(c, a.dataset.view || a.dataset.res); }));
-    $('[data-save]', d).addEventListener('click', async e => { e.target.disabled = true; const patch = { status: $('[data-cstatus]', d).value, nextAppointment: $('[data-next]', d).value.trim(), focus: $('[data-focus]', d).value.trim(), note: $('[data-note]', d).value.trim(), assigned: $$('[data-assign]', d).filter(x => x.checked).map(x => x.dataset.assign) }; await API.updateClient(uid, patch); Object.assign(c, patch); $('[data-msg]', d).textContent = 'Saved.'; e.target.disabled = false; if (location.hash === '#clients') clients(); });
+    $('[data-save]', d).addEventListener('click', async e => { e.target.disabled = true; const patch = { status: $('[data-cstatus]', d).value, nextAppointment: $('[data-next]', d).value.trim(), focus: $('[data-focus]', d).value.trim(), note: $('[data-note]', d).value.trim(), assigned: $$('[data-assign]', d).filter(x => x.checked).map(x => x.dataset.assign) }; await API.updateClient(uid, patch); Object.assign(c, patch); drop('clients', 'accounts'); $('[data-msg]', d).textContent = 'Saved.'; e.target.disabled = false; if (location.hash === '#clients') clients(); });
   }
   function pairCouple() {
     const free = cache.clients.filter(c => c.status !== 'staff' && !c.coupleId);
@@ -140,7 +165,7 @@
       <div class="field"><label>First partner</label><select data-a>${free.map(c => `<option value="${esc(c.uid)}">${esc(c.pseudonym)}${c.email ? ' · ' + esc(c.email) : ''}</option>`).join('')}</select></div>
       <div class="field"><label>Second partner</label><select data-b>${free.map(c => `<option value="${esc(c.uid)}">${esc(c.pseudonym)}${c.email ? ' · ' + esc(c.email) : ''}</option>`).join('')}</select></div>
       <div class="row"><button class="btn primary" data-go type="button" ${free.length < 2 ? 'disabled' : ''}>Pair</button><span class="muted small" data-msg>${free.length < 2 ? 'Two unpaired clients are needed.' : ''}</span></div>`);
-    $('#drawer [data-go]').addEventListener('click', async e => { const a = $('#drawer [data-a]').value, b = $('#drawer [data-b]').value; if (a === b) { $('#drawer [data-msg]').textContent = 'Pick two different clients.'; return; } e.target.disabled = true; await API.createCouple([a, b]); closeDrawer(); clients(); });
+    $('#drawer [data-go]').addEventListener('click', async e => { const a = $('#drawer [data-a]').value, b = $('#drawer [data-b]').value; if (a === b) { $('#drawer [data-msg]').textContent = 'Pick two different clients.'; return; } e.target.disabled = true; await API.createCouple([a, b]); drop('clients', 'accounts', 'couples'); closeDrawer(); clients(); });
   }
 
   /* ---------- traffic ---------- */
@@ -155,29 +180,59 @@
   const sumMap = (days, k) => { const m = {}; days.forEach(d => Object.entries(d[k] || {}).forEach(([key, n]) => { m[key] = (m[key] || 0) + n; })); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const barList = (rows, pretty = s => s) => { const top = rows.slice(0, 8); const max = Math.max(1, ...top.map(r => r[1])); return top.length ? `<div class="bars">${top.map(([k, n]) => `<div class="b"><div><div class="lbl"><span>${esc(pretty(k))}</span></div><i style="width:${Math.round(100 * n / max)}%"></i></div><span class="n">${n}</span></div>`).join('')}</div>` : '<p class="muted small">Nothing yet.</p>'; };
   const prettyPath = s => s.replace(/_/g, '/').replace(/\/+/g, '/').replace(/^\/davidsteinberg-site/, '') || '/';
+  const FLAG = cc => cc && cc !== 'ZZ' && /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) + ' ' + cc : 'Unknown';
+  const prettyRoute = r => !r || r === '_' || r === '/' ? 'Home' : r.replace(/^[_#]+/, '').replace(/_/g, '/').replace(/\/+/g, '/');
   async function traffic() {
-    const t = cache.traffic = await API.listTraffic(); const days = t.slice().sort((a, b) => a.day.localeCompare(b.day));
+    const t = cache.traffic = await L.traffic(); const days = t.slice().sort((a, b) => a.day.localeCompare(b.day));
     const last = n => days.slice(-n); const sum = (arr, k) => arr.reduce((a, d) => a + (d[k] || 0), 0);
-    main.innerHTML = `<h1>Traffic</h1><p class="muted small">Counted by the site itself: page views and daily visitors, no cookies, no stored addresses. Search engines and AI assistants show up under referrers.</p>
+    const view = (location.hash.split('/')[1] || 'overview');
+    const tabs = [['overview', 'Overview'], ['where', 'Where from'], ['flows', 'How visitors move'], ['visits', 'Recent visits']];
+    main.innerHTML = `<div class="row between" style="margin-bottom:10px"><h1 style="margin:0">Traffic</h1><div class="pill-tabs">${tabs.map(([k, l]) => `<button type="button" data-tv="${k}" aria-selected="${k === view}">${l}</button>`).join('')}</div></div>
+      <p class="muted small">Counted by the site itself: no cookies, no stored addresses. Country and region come from a look-up on the visitor's network address, done about once per visitor and cached; the address itself is kept only as a masked prefix in the recent-visits list.</p>
       <div class="grid stats" style="margin-bottom:16px">
         <div class="card stat"><div class="n">${sum(last(1), 'views')}</div><div class="l">views today</div></div>
         <div class="card stat"><div class="n">${sum(last(7), 'views')}</div><div class="l">views · 7 days</div></div>
         <div class="card stat"><div class="n">${sum(last(7), 'uniques')}</div><div class="l">visitors · 7 days</div></div>
         <div class="card stat"><div class="n">${sum(last(30), 'views')}</div><div class="l">views · 30 days</div></div>
         <div class="card stat"><div class="n">${sum(last(30), 'uniques')}</div><div class="l">visitors · 30 days</div></div>
-      </div>
-      <section class="card" style="margin-bottom:16px"><h2>Daily · last 30 days</h2>${chart(days)}</section>
-      <div class="grid two">
-        <section class="card"><h2>Pages · 30 days</h2>${barList(sumMap(last(30), 'routes').concat(sumMap(last(30), 'paths')).sort((a, b) => b[1] - a[1]), prettyPath)}</section>
+      </div><div id="t-body"></div>`;
+    $$('[data-tv]', main).forEach(b => b.addEventListener('click', () => { location.hash = '#traffic/' + b.dataset.tv; }));
+    const body = $('#t-body');
+    if (view === 'where') {
+      body.innerHTML = `<div class="grid two">
+        <section class="card"><h2>Countries · 30 days</h2>${barList(sumMap(last(30), 'countries'), FLAG)}</section>
+        <section class="card"><h2>Regions · 30 days</h2>${barList(sumMap(last(30), 'regions'), s => s.replace(/^([A-Z]{2})-/, '').replace(/_/g, ' ') + (s.startsWith('US-') ? '' : ' (' + s.slice(0, 2) + ')'))}</section>
         <section class="card"><h2>Referrers · 30 days</h2>${barList(sumMap(last(30), 'referrers'), s => s.replace(/_/g, '.'))}</section>
-        <section class="card"><h2>Concept · 30 days</h2>${barList(sumMap(last(30), 'concepts'))}</section>
         <section class="card"><h2>Devices · 30 days</h2>${barList(sumMap(last(30), 'devices'))}</section>
       </div>`;
+    } else if (view === 'flows') {
+      const flows = sumMap(last(30), 'flows').map(([k, n]) => { const [a, b] = k.split('>'); return { a, b, n }; });
+      const hits = await L.hits();
+      const bySid = {}; hits.slice().reverse().forEach(h => { (bySid[h.sid] = bySid[h.sid] || []).push(h); });
+      const journeys = Object.values(bySid).filter(j => j.length > 1).sort((a, b) => b.length - a.length).slice(0, 25);
+      const toContact = flows.filter(f => /contact/.test(f.b)).reduce((a, f) => a + f.n, 0);
+      body.innerHTML = `<div class="grid two">
+        <section class="card"><h2>Most common steps · 30 days</h2><p class="muted small">From one page to the next within a visit.</p>${flows.length ? `<div class="flows">${flows.slice(0, 14).map(f => `<div class="flow"><span>${esc(prettyRoute(f.a))}</span><i>→</i><span>${esc(prettyRoute(f.b))}</span><b>${f.n}</b></div>`).join('')}</div>` : '<p class="muted small">Nothing yet — flows are recorded from the next deploy on.</p>'}</section>
+        <section class="card"><h2>Where the consultation form is reached from</h2>${barList(flows.filter(f => /contact/.test(f.b)).map(f => [f.a, f.n]), prettyRoute)}<p class="muted small" style="margin-top:8px">${toContact} steps into the form in 30 days.</p></section>
+      </div>
+      <section class="card" style="margin-top:16px"><h2>Recent journeys</h2><p class="muted small">One line per visit (a browser tab), oldest step first.</p>${journeys.length ? `<div class="journeys">${journeys.map(j => `<div class="journey"><span class="muted small">${fmtDate(j[0].at)} · ${esc(FLAG(j[0].country))}${j[0].region ? ', ' + esc(j[0].region) : ''} · ${esc(j[0].device)}${j[0].ref ? ' · via ' + esc(j[0].ref) : ''}</span><div class="steps">${j.map(h => `<span>${esc(prettyRoute(h.route || h.path))}</span>`).join('<i>→</i>')}</div></div>`).join('')}</div>` : '<p class="muted small">No multi-step visits recorded yet.</p>'}</section>`;
+    } else if (view === 'visits') {
+      const hits = await L.hits();
+      body.innerHTML = `<section class="card"><h2>Recent visits</h2><p class="muted small">Latest ${hits.length} page views. "New" marks the first view of a visitor that day.</p><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Where</th><th>Address</th><th>Device</th><th>Page</th><th>Came from</th><th></th></tr></thead><tbody>${hits.map(h => `<tr><td class="small nowrap">${fmtDate(h.at)}</td><td class="small">${esc(FLAG(h.country))}${h.region ? '<br><span class="muted">' + esc([h.city, h.region].filter(Boolean).join(', ')) + '</span>' : ''}</td><td class="small mono">${esc(h.ipMask || '')}</td><td class="small">${esc(h.device)}</td><td class="small">${esc(prettyRoute(h.route || h.path))}${h.prev ? '<br><span class="muted">from ' + esc(prettyRoute(h.prev)) + '</span>' : ''}</td><td class="small">${esc(h.ref || '')}</td><td>${h.first ? '<span class="chip new">New</span>' : ''}</td></tr>`).join('') || '<tr><td colspan="7"><div class="empty">Nothing yet.</div></td></tr>'}</tbody></table></div></section>`;
+    } else {
+      body.innerHTML = `<section class="card" style="margin-bottom:16px"><h2>Daily · last 30 days</h2>${chart(days)}</section>
+      <div class="grid two">
+        <section class="card"><h2>Pages · 30 days</h2>${barList(sumMap(last(30), 'routes').concat(sumMap(last(30), 'paths')).sort((a, b) => b[1] - a[1]), prettyPath)}</section>
+        <section class="card"><h2>Countries · 30 days</h2>${barList(sumMap(last(30), 'countries'), FLAG)}</section>
+        <section class="card"><h2>Referrers · 30 days</h2>${barList(sumMap(last(30), 'referrers'), s => s.replace(/_/g, '.'))}</section>
+        <section class="card"><h2>Devices · 30 days</h2>${barList(sumMap(last(30), 'devices'))}</section>
+      </div>`;
+    }
   }
 
   /* ---------- audit ---------- */
   async function audit() {
-    const rows = await API.listAudit();
+    const rows = await L.audit();
     main.innerHTML = `<h1>Audit log</h1><p class="muted small">Every time staff looked up who a pseudonym belongs to.</p><section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead><tbody>${rows.map(r => `<tr><td class="small">${fmtDate(r.at)}</td><td class="small">${esc(r.by)}</td><td class="small">${esc(r.action)}</td><td class="small mono">${esc(r.target || (r.count != null ? r.count + ' accounts' : ''))}</td></tr>`).join('') || '<tr><td colspan="4"><div class="empty">Nothing yet.</div></td></tr>'}</tbody></table></div></section>`;
   }
 
@@ -202,7 +257,9 @@
       if (b.role !== 'staff') { app.innerHTML = `<section class="wrap narrow"><div class="card"><h1>Staff only</h1><p>${esc(u.email)} is not on the staff list. Clients use the <a href="../portal/">client portal</a>.</p><p><button class="btn" id="so2">Sign out</button></p></div></section>`; $('#so2').addEventListener('click', () => API.signOut()); return; }
       app.innerHTML = ''; app.appendChild(tpl('t-shell')); main = $('#main');
       $$('[data-close]').forEach(el => el.addEventListener('click', closeDrawer));
-      if (!cache.reqs) { API.listRequests().then(r => { cache.reqs = r; const badge = $('[data-count-new]'); const n = r.filter(x => x.status === 'new').length; badge.textContent = n; badge.hidden = !n; }); }
+      if (!cache.reqs) { L.reqs().then(r => { cache.reqs = r; const badge = $('[data-count-new]'); const n = r.filter(x => x.status === 'new').length; badge.textContent = n; badge.hidden = !n; }); }
+      /* warm the other sections quietly so the first click on each is instant */
+      setTimeout(() => { L.clients(); L.traffic(); L.resps(); L.qs(); L.hits(); }, 800);
       route();
     } catch (e) { app.innerHTML = `<section class="wrap narrow"><div class="card"><h1>Something went wrong.</h1><p class="muted">${esc(e.message || e)}</p></div></section>`; }
   });
