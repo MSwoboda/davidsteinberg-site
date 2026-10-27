@@ -3,22 +3,80 @@
     "site": "davidsteinberg-site",
     "public": ".",
     "ignore": [
-      "firebase.json", ".firebaserc", "**/.*", "**/node_modules/**",
-      "backend/**", "tools/**", "content/**", "README.md", "SITE.md", "sage/index.artifact.html"
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/node_modules/**",
+      "archive/**",
+      "backend/**",
+      "tools/**",
+      "content/**",
+      "README.md",
+      "SITE.md"
     ],
     "cleanUrls": true,
     "headers": [
-      { "source": "**/*.@(jpg|jpeg|png|webp|svg|woff2)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000" }] },
-      { "source": "**/*.@(js|css)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] },
-      { "source": "**", "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ] }
+      {
+        "source": "**/*.@(jpg|jpeg|png|webp|svg|woff2)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=2592000"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          }
+        ]
+      }
     ]
   },
-  "functions": [{ "source": "backend/functions", "codebase": "default", "runtime": "nodejs20" }],
-  "firestore": { "rules": "backend/firestore.rules", "indexes": "backend/firestore.indexes.json" },
-  "emulators": { "functions": { "port": 5001 }, "firestore": { "port": 8080 }, "hosting": {
-    "site": "davidsteinberg-site", "port": 5000 }, "ui": { "enabled": false } }
+  "functions": [
+    {
+      "source": "backend/functions",
+      "codebase": "default",
+      "runtime": "nodejs20"
+    }
+  ],
+  "firestore": {
+    "rules": "backend/firestore.rules",
+    "indexes": "backend/firestore.indexes.json"
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "hosting": {
+      "site": "davidsteinberg-site",
+      "port": 5000
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
 }

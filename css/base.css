@@ -268,20 +268,6 @@ body.page-open .site-header { position: static; }
 .reader-content p, .reader-content li { color: var(--ink-2); }
 .reader-foot { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
 
-/* ---------- frame (nouveau fills it) ---------- */
-.frame { display: none; }
-
-/* ---------- prototype toolbar ---------- */
-.dev-toolbar { position: fixed; right: 14px; bottom: 14px; z-index: 60; display: flex; gap: 4px; padding: 5px; background: #1d1f1c; color: #eee; border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-family: system-ui, sans-serif; font-size: 12px; }
-.dev-toolbar button, .dev-toolbar .dev-link { background: transparent; color: inherit; border: 0; padding: 6px 11px; border-radius: 999px; cursor: pointer; text-decoration: none; font: inherit; }
-.dev-toolbar button[aria-pressed="true"] { background: #fff; color: #111; }
-.dev-toolbar .dev-sep { width: 1px; background: #444; margin: 4px 2px; }
-.dev-toolbar .dev-min { padding: 6px 9px; color: #aaa; }
-.dev-toolbar .dev-open { display: none; }
-.dev-toolbar.collapsed { padding: 0; }
-.dev-toolbar.collapsed > * { display: none; }
-.dev-toolbar.collapsed .dev-open { display: block; width: 34px; height: 34px; padding: 0; font-size: 16px; }
-@media print { .dev-toolbar { display: none; } }
 /* on-site light / dark toggle */
 .mode-toggle { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2, var(--ink)); cursor: pointer; flex: none; }
 .mode-toggle:hover { color: var(--accent); border-color: var(--accent); }

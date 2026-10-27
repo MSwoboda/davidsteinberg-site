@@ -5,45 +5,25 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pad = n => String(n).padStart(2, '0');
-  const artImg = (item, cls) => `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg"${item.plate ? ` data-src-nouveau="assets/nouveau/plates/${item.plate}.webp"` : ''} alt="" loading="lazy">`;
+  const artImg = (item, cls) => `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg" alt="" loading="lazy">`;
   const root = document.documentElement;
 
-  /* ---------- concept, mode, paper ---------- */
-  const THEMES = ['civic', 'nouveau'];
+  /* ---------- light / dark mode (the Civic template is the live one; Nouveau and Sage live in archive/) ---------- */
   function applyImages() {
-    const t = root.dataset.concept, m = root.dataset.mode;
-    $$('img[data-src-nouveau], img[data-src-dark]').forEach(img => {
+    const m = root.dataset.mode;
+    $$('img[data-src-dark]').forEach(img => {
       img.dataset.srcDefault = img.dataset.srcDefault || img.getAttribute('src');
-      let want = img.dataset.srcDefault;
-      if (t === 'nouveau' && img.dataset.srcNouveau) want = (m === 'dark' && img.dataset.srcNouveauDark) ? img.dataset.srcNouveauDark : img.dataset.srcNouveau;
-      if (m === 'dark' && img.dataset.srcDark) want = img.dataset.srcDark;
+      const want = (m === 'dark' && img.dataset.srcDark) ? img.dataset.srcDark : img.dataset.srcDefault;
       if (img.getAttribute('src') !== want) img.src = want;
-      if (img.dataset.altNouveau) { img.dataset.altDefault = img.dataset.altDefault || img.getAttribute('alt'); img.alt = t === 'nouveau' ? img.dataset.altNouveau : img.dataset.altDefault; }
     });
-  }
-  function setTheme(t) {
-    if (!THEMES.includes(t)) t = 'civic';
-    root.dataset.concept = t;
-    $$('link[data-concept-css]').forEach(l => { l.disabled = l.dataset.conceptCss !== t; });
-    $$('.dev-toolbar [data-set-theme]').forEach(b => b.setAttribute('aria-pressed', b.dataset.setTheme === t));
-    applyImages();
-    try { localStorage.setItem('ds-theme', t); } catch (e) {}
   }
   function setMode(m) { root.dataset.mode = m; applyImages(); try { localStorage.setItem('ds-mode', m); } catch (e) {} }
   const params = new URLSearchParams(location.search);
-  let theme = params.get('theme'), mode = params.get('mode');
-  try { theme = theme || localStorage.getItem('ds-theme'); mode = mode || localStorage.getItem('ds-mode'); } catch (e) {}
-  setTheme(theme || 'civic');
+  let mode = params.get('mode');
+  try { mode = mode || localStorage.getItem('ds-mode'); } catch (e) {}
   if (!mode) mode = (root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
   setMode(mode);
-  $$('.dev-toolbar [data-set-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.setTheme)));
   $$('[data-toggle-mode]').forEach(b => b.addEventListener('click', () => setMode(root.dataset.mode === 'dark' ? 'light' : 'dark')));
-  /* prototype toolbar: minimize / restore */
-  const devbar = $('.dev-toolbar');
-  function setDevbar(open) { devbar.classList.toggle('collapsed', !open); try { localStorage.setItem('ds-devbar', open ? 'open' : 'min'); } catch (e) {} }
-  try { setDevbar(localStorage.getItem('ds-devbar') !== 'min'); } catch (e) {}
-  $('[data-dev-min]').addEventListener('click', () => setDevbar(false));
-  $('[data-dev-open]').addEventListener('click', () => setDevbar(true));
 
   /* ---------- link map: old URLs -> pages ---------- */
   const linkMap = {};
@@ -187,7 +167,6 @@
     $('[data-render="ways"]').innerHTML = C.ways.map(w => `<div class="way"><h3>${esc(w.title)}</h3><p class="way-lead">${esc(w.lead)}</p><p>${esc(w.text)}</p></div>`).join('');
     $('[data-render="insurance"]').innerHTML = C.practice.insurance.map(i => `<li>${esc(i)}</li>`).join('');
     $('[data-render="closing-title"]').textContent = C.closing.title;
-    if (C.closing.plate) $('.closing-art').dataset.srcNouveau = `assets/nouveau/plates/${C.closing.plate}.webp`;
     $('[data-render="closing-text"]').textContent = C.closing.text;
     const F = C.consultation_form, fld = n => F.fields.find(f => f.name === n);
     const legend = f => `${esc(f.label)}${f.hint ? ` <span class="hint">(${esc(f.hint)})</span>` : ''}`;
