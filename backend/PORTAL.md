@@ -79,6 +79,22 @@ Business Associate Amendment). Firestore, Cloud Functions, Cloud Run, Secret Man
 Identity Platform are covered services. The Gmail notification for consultation requests carries contact details
 only, not clinical content; the portal never emails answers.
 
+## US-only access (planned)
+
+Agreed trade-off: everything outside the United States is blocked — including a client travelling abroad and
+non-US search crawlers. Done at the edge, not in code:
+
+1. Add `davidsteinberg.com` to a free Cloudflare account and point the domain's nameservers at Cloudflare (today
+   they are `ns1/ns2.rhostbh.com`, the old WordPress host). This is done at the registrar — a user step.
+2. DNS on Cloudflare: `A` records for GitHub Pages (185.199.108–111.153) and `CNAME www → mswoboda.github.io`,
+   proxied (orange cloud). In the GitHub repo, Settings → Pages → custom domain `davidsteinberg.com`, enforce HTTPS.
+3. Security → WAF → custom rule "US only": expression `ip.geoip.country ne "US"` → Block. Applies to the site,
+   the portal and the dashboard, since they are all under the domain.
+4. The functions stay on `cloudfunctions.net`, which the WAF does not cover. Two options: route them through a
+   Cloudflare Worker on `api.davidsteinberg.com` (the same rule then applies), or add a country check inside the
+   functions from Cloudflare's `CF-IPCountry` header once calls go through the Worker. Until then the functions
+   are reachable worldwide but do nothing without a signed-in account (portal) or a valid form (contact).
+
 ## What is next
 
 - Messaging between client and practice (`threads/`), with an email ping that carries no content.
