@@ -392,8 +392,10 @@
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
   $('[data-year]').textContent = new Date().getFullYear();
 
+  /* menu and footer links to pages follow the page's status: a draft page has no link */
+  function syncPageLinks() { $$('a[href^="#page/"]').forEach(a => { const id = a.getAttribute('href').slice(6).split(/[?/]/)[0]; const pg = (C.pages || []).find(x => x.id === id); a.hidden = !pg || pg.status === 'draft'; }); }
   function start() {
-    buildLinkMap(); renderHero(); renderServices(); renderExplorer(); renderAudience(); renderSteps(); renderStories(); renderAbout(); renderApproach(); renderWays(); renderResources(); renderFaq();
+    buildLinkMap(); syncPageLinks(); renderHero(); renderServices(); renderExplorer(); renderAudience(); renderSteps(); renderStories(); renderAbout(); renderApproach(); renderWays(); renderResources(); renderFaq();
     applyImages();
     route();
     if (window.LIVE_PREVIEW) { const b = document.createElement('div'); b.className = 'preview-badge'; b.textContent = 'Preview of the unpublished draft'; document.body.appendChild(b); }
