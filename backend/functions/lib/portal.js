@@ -50,7 +50,7 @@ async function recordHit(hit, deps) {
   const now = deps.now ? deps.now() : new Date();
   const day = now.toISOString().slice(0, 10);
   const path = key((hit.path || '/').split('?')[0]).slice(0, 80);
-  const route = key(hit.route || '').slice(0, 80);
+  const route = hit.route ? key(hit.route).slice(0, 80) : '';
   const concept = ['civic', 'nouveau', 'sage'].includes(hit.concept) ? hit.concept : 'other';
   let ref = '';
   try { ref = hit.referrer ? new URL(hit.referrer).hostname.replace(/^www\./, '') : ''; } catch (e) { ref = ''; }
