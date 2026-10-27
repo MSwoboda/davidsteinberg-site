@@ -24,6 +24,28 @@ nothing saved) otherwise — that is what the design artifact shows.
 Answers (`responses/{uid}_{qid}`) carry the uid and the pseudonym's profile, never the name. Deleting a client's
 Auth account leaves the clinical data unlinked from any identity.
 
+## Assessments (dashboard → Assessments)
+
+Build instruments in the dashboard (title, kind, scale, items with reverse-scoring and subscales, result bands
+with clinician guidance) or import JSON (`backend/questionnaires/`). Assign from a client's page. Results show the
+score, band, subscale bars, item-by-item answers, partners side by side with large disagreements flagged, earlier
+attempts as a trend line, a clinician note and a "reviewed" mark. The client portal lets a client answer an
+instrument again; the previous attempt is kept in `responses/{uid}_{qid}.history`.
+
+## Site content (dashboard → Site content)
+
+Articles, quizzes, pages, counseling services, questions, home/about copy and practice details are edited in the
+dashboard. The whole content object (same shape as `content/content.json`) is saved as a draft (`site/draft`),
+previewed on the real site (`/?preview=1`, handed over through browser storage on the same origin) and published
+to `site/published`; every publish is kept under `site/versions/list/`. The public site ships with the baked-in
+`js/content.js` as the fallback and loads `site/published` with one small public read (`js/live.js`), cached in
+the browser. Items with status "Draft" stay off the site. "Export JSON" gives the content back for the repo
+(`content/content.json` → `tools/build.py`).
+
+Quizzes are a content type of their own: questions, a scale, result bands with text and a call to action; the
+site renders them at `#quiz/<id>` and lists them under Resources as "Self-checks". Nothing a visitor answers is
+stored; a completed quiz counts once in the traffic page as the route `#quiz-done/<id>`.
+
 ## Data model (Firestore)
 
 | collection | written by | read by |
@@ -33,7 +55,9 @@ Auth account leaves the clinical data unlinked from any identity.
 | `aliases/{slug}` — pseudonym reservations | function | nobody |
 | `couples/{id}` — members[] | staff | members, staff |
 | `questionnaires/{id}` — definition (see `questionnaires/README.md`) | staff | signed-in |
-| `responses/{uid}_{qid}` — answers, status | the client (own) | the client (own), staff |
+| `responses/{uid}_{qid}` — answers, status, attempt, history[], staffNote, reviewedAt | the client (own); staff: note + reviewed | the client (own), staff |
+| `site/published` — the live site content (one JSON string) | staff | public |
+| `site/draft`, `site/versions/list/{v}` — draft and publish history | staff | staff |
 | `threads/{uid}/messages/*` — messaging, phase 2 (rules in place) | client / staff | client, staff |
 | `traffic/{day}` — page-view counters; `visitors/` sub-collection holds daily hashes | `pageHit` function | staff |
 | `audit/{id}` — identity look-ups | functions | staff |
@@ -56,7 +80,7 @@ skipped.
    `app/firebase-config.js`. (These are public identifiers; the rules do the protecting.)
 3. **Staff list and salt**: in `backend/functions/.env` set `STAFF_EMAILS=michswo@gmail.com` (add David's later)
    and `TRAFFIC_SALT=` any long random string.
-4. **Deploy**: from the repo root, `npx firebase-tools deploy --only functions,firestore` — deploys the functions,
+4. **Deploy**: `cd backend && npx firebase-tools deploy --only functions,firestore` — deploys the four functions,
    the rules, and the indexes.
 5. **Questionnaires**: open `/admin/`, Questionnaires → Import JSON → `backend/questionnaires/self-check.json`,
    then the fourteen instruments.
@@ -78,15 +102,6 @@ Accept the Google Cloud BAA for the project (Cloud console → IAM & Admin → S
 Business Associate Amendment). Firestore, Cloud Functions, Cloud Run, Secret Manager and Firebase Authentication /
 Identity Platform are covered services. The Gmail notification for consultation requests carries contact details
 only, not clinical content; the portal never emails answers.
-
-## Hosting
-
-The site, portal and dashboard are also served by Firebase Hosting: https://davidsteinberg-site.web.app (and
-`.firebaseapp.com`). `firebase.json` at the repo root serves the repo itself, minus `backend/`, `tools/` and
-`content/`. Deploy with `npx firebase-tools deploy --only hosting` from the repo root. GitHub Pages
-(https://mswoboda.github.io/davidsteinberg-site/) keeps working from the same files. The custom domain
-davidsteinberg.com can be attached either here (Hosting → Add custom domain) or on GitHub Pages; the Cloudflare
-plan below works in front of either.
 
 ## US-only access (planned)
 
