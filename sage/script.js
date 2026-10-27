@@ -221,7 +221,7 @@
   var devbar = document.querySelector(".dev-toolbar");
   if (devbar) {
     var setDevbar = function (open) { devbar.classList.toggle("collapsed", !open); try { localStorage.setItem("ds-devbar", open ? "open" : "min"); } catch (e) { /* ignore */ } };
-    try { setDevbar(localStorage.getItem("ds-devbar") !== "min"); } catch (e) { /* ignore */ }
+    try { setDevbar(localStorage.getItem("ds-devbar") === "open"); } catch (e) { setDevbar(false); }
     devbar.querySelector("[data-dev-min]").addEventListener("click", function () { setDevbar(false); });
     devbar.querySelector("[data-dev-open]").addEventListener("click", function () { setDevbar(true); });
     devbar.querySelector("[data-toggle-mode]").addEventListener("click", function () { applyTheme(currentTheme() === "dark" ? "light" : "dark"); });

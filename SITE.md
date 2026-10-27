@@ -1,7 +1,7 @@
 # davidsteinberg.com — prototype with three front-end concepts
 
 Open `index.html` in a browser. The toolbar at the bottom right switches between the three concepts
-and between light and dark mode. Since 2026-10-27 the Civic template is the only live one; `index.html?mode=dark` previews dark mode. The Nouveau and Sage concepts are archived in `archive/` and can be restored (see `archive/README.md`).
+and between light and dark mode. Civic is the default; the bottom bar (minimized until opened) switches to Nouveau and Sage. `index.html?theme=nouveau&mode=dark` opens a concept directly.
 
 ## Files
 
@@ -11,7 +11,7 @@ and between light and dark mode. Since 2026-10-27 the Civic template is the only
 | `css/base.css` | Structure shared by all concepts: grid, header, cards, form, dialog. Themes only change looks. |
 | `css/fonts.css` + `assets/fonts/` | Self-hosted fonts (no Google request at load time). |
 | `themes/civic.css` + `assets/civic/` + `assets/photos/` | Concept 1: modeled on trumpaccounts.gov. Instrument Serif + Geist, cream/tan bands, pill buttons, halftone line drawings (made by `tools/make_civic_svg.py`), stock photos in the carousel (see `assets/photos/CREDITS.md`). |
-| `archive/themes/nouveau.css` + `archive/assets/nouveau/` (archived) | Concept 2: painted vine frame, stained glass arches, dithered portrait. Cormorant Garamond + Alegreya. |
+| `themes/nouveau.css` + `assets/nouveau/` | Concept 2: painted vine frame, stained glass arches, dithered portrait. Cormorant Garamond + Alegreya. |
 | `js/content.js` | All text, built from `../content/content.json` by `tools/build.py`. Do not edit by hand. |
 | `js/app.js` | Renders services, articles, FAQ, form options from the content; theme switcher; reader dialog; mobile nav. |
 
@@ -33,6 +33,6 @@ Rules that keep the three concepts in sync:
 - Text marked `draft` in `content.json` is new and needs David's approval (hero line, FAQ answers).
 
 ## Fourth option: Sage
-`archive/sage/` (archived) is a separate one-page site (hash-routed, Manrope, sage accent) supplied on 2026-10-23. It has its own `styles.css` and `script.js`
+`sage/` is a separate one-page site (hash-routed, Manrope, sage accent) supplied on 2026-10-23. It has its own `styles.css` and `script.js`
 and does not use `content.json`. The toolbar on either side links across. Its map is a Google Maps iframe, which the artifact viewer blocks;
 it works when the folder is opened from disk or hosted.

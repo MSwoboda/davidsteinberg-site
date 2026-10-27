@@ -6,25 +6,45 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pad = n => String(n).padStart(2, '0');
-  const artImg = (item, cls) => item.image ? `<img${cls ? ` class="${cls}"` : ''} class="photo" src="${esc(item.image)}" alt="${esc(item.image_alt || '')}" loading="lazy">` : `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg" alt="" loading="lazy">`;
+  const artImg = (item, cls) => item.image ? `<img class="photo${cls ? ' ' + cls : ''}" src="${esc(item.image)}" alt="${esc(item.image_alt || '')}" loading="lazy">` : `<img${cls ? ` class="${cls}"` : ''} src="assets/civic/${item.art || 'garden'}.svg"${item.plate ? ` data-src-nouveau="assets/nouveau/plates/${item.plate}.webp"` : ''} alt="" loading="lazy">`;
   const root = document.documentElement;
 
-  /* ---------- light / dark mode (the Civic template is the live one; Nouveau and Sage live in archive/) ---------- */
+  /* ---------- concept (Civic is the live default; Nouveau and Sage stay switchable from the bottom bar), light / dark ---------- */
+  const THEMES = ['civic', 'nouveau'];
   function applyImages() {
-    const m = root.dataset.mode;
-    $$('img[data-src-dark]').forEach(img => {
+    const t = root.dataset.concept, m = root.dataset.mode;
+    $$('img[data-src-nouveau], img[data-src-dark]').forEach(img => {
       img.dataset.srcDefault = img.dataset.srcDefault || img.getAttribute('src');
-      const want = (m === 'dark' && img.dataset.srcDark) ? img.dataset.srcDark : img.dataset.srcDefault;
+      let want = img.dataset.srcDefault;
+      if (t === 'nouveau' && img.dataset.srcNouveau) want = (m === 'dark' && img.dataset.srcNouveauDark) ? img.dataset.srcNouveauDark : img.dataset.srcNouveau;
+      if (m === 'dark' && img.dataset.srcDark) want = img.dataset.srcDark;
       if (img.getAttribute('src') !== want) img.src = want;
+      if (img.dataset.altNouveau) { img.dataset.altDefault = img.dataset.altDefault || img.getAttribute('alt'); img.alt = t === 'nouveau' ? img.dataset.altNouveau : img.dataset.altDefault; }
     });
+  }
+  function setTheme(t) {
+    if (!THEMES.includes(t)) t = 'civic';
+    root.dataset.concept = t;
+    $$('link[data-concept-css]').forEach(l => { l.disabled = l.dataset.conceptCss !== t; });
+    $$('.dev-toolbar [data-set-theme]').forEach(b => b.setAttribute('aria-pressed', b.dataset.setTheme === t));
+    applyImages();
+    try { localStorage.setItem('ds-theme', t); } catch (e) {}
   }
   function setMode(m) { root.dataset.mode = m; applyImages(); try { localStorage.setItem('ds-mode', m); } catch (e) {} }
   const params = new URLSearchParams(location.search);
-  let mode = params.get('mode');
-  try { mode = mode || localStorage.getItem('ds-mode'); } catch (e) {}
+  let theme = params.get('theme'), mode = params.get('mode');
+  try { theme = theme || localStorage.getItem('ds-theme'); mode = mode || localStorage.getItem('ds-mode'); } catch (e) {}
+  setTheme(theme || 'civic');
   if (!mode) mode = (root.dataset.theme === 'dark' || (root.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
   setMode(mode);
+  $$('.dev-toolbar [data-set-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.setTheme)));
   $$('[data-toggle-mode]').forEach(b => b.addEventListener('click', () => setMode(root.dataset.mode === 'dark' ? 'light' : 'dark')));
+  /* bottom bar: minimized until opened */
+  const devbar = $('.dev-toolbar');
+  function setDevbar(open) { devbar.classList.toggle('collapsed', !open); try { localStorage.setItem('ds-devbar', open ? 'open' : 'min'); } catch (e) {} }
+  try { setDevbar(localStorage.getItem('ds-devbar') === 'open'); } catch (e) { setDevbar(false); }
+  $('[data-dev-min]').addEventListener('click', () => setDevbar(false));
+  $('[data-dev-open]').addEventListener('click', () => setDevbar(true));
 
   /* ---------- link map: old URLs -> pages ---------- */
   const linkMap = {};
@@ -176,6 +196,7 @@
     $('[data-render="insurance"]').innerHTML = C.practice.insurance.map(i => `<li>${esc(i)}</li>`).join('');
     $('[data-render="closing-title"]').textContent = C.closing.title;
     $('[data-render="closing-text"]').textContent = C.closing.text;
+    if (C.closing.plate) $('.closing-art').dataset.srcNouveau = `assets/nouveau/plates/${C.closing.plate}.webp`;
     const F = C.consultation_form, fld = n => F.fields.find(f => f.name === n);
     const legend = f => `${esc(f.label)}${f.hint ? ` <span class="hint">(${esc(f.hint)})</span>` : ''}`;
     const pills = (f, name) => f.options.map(o => `<label class="pill"><input type="checkbox" name="${name}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('');
