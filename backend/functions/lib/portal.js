@@ -63,9 +63,10 @@ async function recordHit(hit, deps) {
   await deps.db.runTransaction(async tx => {
     const v = await tx.get(visRef);
     const first = !v.exists;
-    const upd = { day, views: inc(1), [`paths.${path}`]: inc(1), [`concepts.${concept}`]: inc(1), [`devices.${device}`]: inc(1) };
-    if (route) upd[`routes.${route}`] = inc(1);
-    if (ref) upd[`referrers.${key(ref)}`] = inc(1);
+    /* nested maps, not dotted keys: set(..., {merge:true}) treats "paths.x" as a literal field name */
+    const upd = { day, views: inc(1), paths: { [path]: inc(1) }, concepts: { [concept]: inc(1) }, devices: { [device]: inc(1) } };
+    if (route) upd.routes = { [route]: inc(1) };
+    if (ref) upd.referrers = { [key(ref)]: inc(1) };
     if (first) { upd.uniques = inc(1); tx.set(visRef, { at: now.toISOString() }); }
     tx.set(dayRef, upd, { merge: true });
   });

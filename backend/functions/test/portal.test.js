@@ -4,19 +4,21 @@ const assert = require('node:assert/strict');
 const { makeAlias, ADJECTIVES, ANIMALS } = require('../lib/alias');
 const { bootstrap, clientIdentity, recordHit, classifyDevice } = require('../lib/portal');
 
-/* In-memory Firestore stand-in with transactions and FieldValue.increment-style updates (dotted keys merge). */
+/* In-memory Firestore stand-in with transactions and FieldValue.increment-style updates. Like the real
+   set(..., {merge:true}), nested objects deep-merge and a dotted key is a literal field name. */
 function fakeDb() {
   const store = {};
+  const merge = (into, v) => {
+    for (const [k, val] of Object.entries(v)) {
+      if (val && val.__inc != null) into[k] = (into[k] || 0) + val.__inc;
+      else if (val && typeof val === 'object' && !Array.isArray(val)) { into[k] = into[k] && typeof into[k] === 'object' ? into[k] : {}; merge(into[k], val); }
+      else into[k] = val;
+    }
+    return into;
+  };
   const setDoc = (path, v, opts) => {
     if (!(opts && opts.merge)) { store[path] = JSON.parse(JSON.stringify(v)); return; }
-    const cur = store[path] || {};
-    for (const [k, val] of Object.entries(v)) {
-      const parts = k.split('.'); let o = cur;
-      for (let i = 0; i < parts.length - 1; i++) { o[parts[i]] = o[parts[i]] || {}; o = o[parts[i]]; }
-      const last = parts[parts.length - 1];
-      o[last] = (val && val.__inc != null) ? (o[last] || 0) + val.__inc : val;
-    }
-    store[path] = cur;
+    store[path] = merge(store[path] || {}, v);
   };
   const doc = (path) => ({
     id: path.split('/').pop(), path,
