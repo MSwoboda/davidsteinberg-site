@@ -21,6 +21,7 @@ admin.initializeApp();
 const GMAIL_USER = defineString('GMAIL_USER');
 const NOTIFY_TO = defineString('NOTIFY_TO', { default: '' });
 const STAFF_EMAILS = defineString('STAFF_EMAILS', { default: '' });        // who may open the admin dashboard
+const NOTIFY_DETAIL = defineString('NOTIFY_DETAIL', { default: 'full' });  // 'full' = whole request in the email; 'ping' = name + dashboard link only
 const TRAFFIC_SALT = defineString('TRAFFIC_SALT', { default: 'change-me' }); // salts the daily visitor hash
 const GMAIL_APP_PASSWORD = defineSecret('GMAIL_APP_PASSWORD');
 
@@ -33,7 +34,7 @@ exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWO
   const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
   const out = await handle(
     { method: req.method, body: req.body, ip, userAgent: req.headers['user-agent'], origin: req.headers.origin },
-    { db: admin.firestore(), sendMail },
+    { db: admin.firestore(), sendMail, detail: NOTIFY_DETAIL.value() === 'ping' ? 'ping' : 'full' },
   );
   res.status(out.status);
   if (out.body === '') res.end(); else res.json(out.body);

@@ -8,6 +8,7 @@
       "**/.*",
       "**/node_modules/**",
       "archive/**",
+      "docs/**",
       "backend/**",
       "tools/**",
       "content/**",

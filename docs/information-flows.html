@@ -1,0 +1,288 @@
+<title>Practice Site Data Flows</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one wide schematic, then a stores table and a short gaps list; engineering-drawing tone, navy accent matching the Civic site. */
+:root {
+  --bg: #f7f5f0; --fg: #1d2330; --muted: #5d6675; --line: #c9c4b8; --panel: #ffffff;
+  --accent: #2c4a7a; --warn: #a8641e; --dimline: #8b8f96;
+  --display: "Source Serif 4", Georgia, serif; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #15181e; --fg: #e8e6e0; --muted: #a3a8b3; --line: #3a3f49; --panel: #1d2128; --accent: #8fb1e6; --warn: #e0a35a; --dimline: #7a7f88; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #15181e; --fg: #e8e6e0; --muted: #a3a8b3; --line: #3a3f49; --panel: #1d2128; --accent: #8fb1e6; --warn: #e0a35a; --dimline: #7a7f88; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); line-height: 1.5; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 1240px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.9rem; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.3rem; margin: 0 0 8px; }
+p { max-width: 68ch; margin: 0; }
+.meta { color: var(--muted); font-size: .9rem; }
+header { display: grid; gap: 8px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.scroll { overflow-x: auto; }
+svg { display: block; max-width: 100%; height: auto; min-width: 760px; color: var(--fg); }
+figcaption { color: var(--muted); font-size: .9rem; margin-top: 10px; max-width: 80ch; }
+.node { fill: var(--panel); stroke: currentColor; stroke-width: 1.2; }
+.who { fill: var(--bg); stroke: currentColor; stroke-width: 1.2; }
+.node.warn { stroke: var(--warn); stroke-width: 1.6; }
+.node.dim { stroke: var(--dimline); stroke-dasharray: 4 3; }
+.g { fill: none; stroke: var(--dimline); stroke-dasharray: 5 4; stroke-width: 1; }
+.gl { font: 500 10.5px var(--mono); fill: var(--muted); letter-spacing: .04em; }
+.lane { font: 600 11px var(--body); fill: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.t { font: 600 12.5px var(--body); fill: currentColor; }
+.s { font: 400 10.5px var(--body); fill: var(--muted); }
+.s.mono { font-family: var(--mono); font-size: 10px; }
+.l { font: 400 10.5px var(--body); fill: var(--muted); }
+.e { fill: none; stroke: currentColor; stroke-width: 1.3; }
+.e.pii { stroke: var(--accent); stroke-width: 1.8; }
+.e.dim { stroke: var(--dimline); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: .85rem; color: var(--muted); margin-top: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 34px; height: 0; border-top: 2px solid currentColor; }
+.sw.pii { border-color: var(--accent); border-top-width: 3px; }
+.sw.dim { border-top: 2px dashed var(--dimline); }
+.sw.warn { width: 18px; height: 12px; border: 2px solid var(--warn); border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td code { font-family: var(--mono); font-size: .82rem; white-space: nowrap; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; background: var(--panel); min-width: 0; }
+.card ul { margin: 8px 0 0; padding-left: 18px; }
+.card li { margin: 6px 0; }
+.card li strong { font-weight: 600; }
+.tag { display: inline-block; font: 500 .72rem var(--mono); letter-spacing: .04em; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--warn); color: var(--warn); margin-left: 6px; vertical-align: middle; }
+@media (max-width: 600px) { th:nth-child(3), td:nth-child(3) { display: none; } }
+</style>
+<main>
+<header>
+  <h1>Practice Site Data Flows</h1>
+  <p class="meta">davidsteinberg.com rebuild · as deployed on 27 October 2026 · Civic template on Firebase Hosting and GitHub Pages, backend on Firebase project <code>davidsteinberg-site</code></p>
+  <p>Four flows share one Google Cloud project. The public site sends nothing but anonymous counts; the consultation form is the first place personal information enters, and it goes two ways at once (Firestore and Gmail). The portal and dashboard sign in through Google and talk to Firestore directly under security rules, with four small functions for the steps that need server trust.</p>
+</header>
+
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1340 720" role="img" aria-label="Schematic of the four information flows: page views to traffic counters; the consultation form to Firestore and to Gmail; the client portal through Google sign-in and bootstrap to client, questionnaire and response documents; the practice dashboard through Google sign-in to staff-only reads and the identity look-up functions." xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <rect class="g" x="198" y="36" width="224" height="668" rx="10"/><text class="gl" x="210" y="54">HOSTING — static files only</text>
+<rect class="g" x="458" y="36" width="700" height="668" rx="10"/><text class="gl" x="470" y="54">GOOGLE CLOUD PROJECT davidsteinberg-site — functions us-east4 · Firestore nam5</text>
+<rect class="g" x="1170" y="36" width="150" height="268" rx="10"/><text class="gl" x="1182" y="54">OUTSIDE GOOGLE CLOUD</text>
+<text class="lane" x="24" y="50">1  Page views</text>
+<text class="lane" x="24" y="150">2  Consultation form</text>
+<text class="lane" x="24" y="330">3  Client portal</text>
+<text class="lane" x="24" y="530">4  Practice dashboard</text>
+<rect class="who" x="24" y="60" width="120" height="64" rx="6"/>
+<text class="t" x="84.0" y="82" text-anchor="middle">Visitor</text>
+<text class="s" x="84.0" y="98" text-anchor="middle">anyone on the</text>
+<text class="s" x="84.0" y="111" text-anchor="middle">public site</text>
+<rect class="who" x="24" y="160" width="120" height="64" rx="6"/>
+<text class="t" x="84.0" y="182" text-anchor="middle">Prospective client</text>
+<text class="s" x="84.0" y="198" text-anchor="middle">fills in the form</text>
+<rect class="who" x="24" y="340" width="120" height="144" rx="6"/>
+<text class="t" x="84.0" y="362" text-anchor="middle">Client</text>
+<text class="s" x="84.0" y="378" text-anchor="middle">signed in with</text>
+<text class="s" x="84.0" y="391" text-anchor="middle">a Google account</text>
+<rect class="who" x="24" y="540" width="120" height="144" rx="6"/>
+<text class="t" x="84.0" y="562" text-anchor="middle">Staff</text>
+<text class="s" x="84.0" y="578" text-anchor="middle">michswo@gmail.com</text>
+<text class="s" x="84.0" y="591" text-anchor="middle">(STAFF_EMAILS)</text>
+<rect class="node" x="210" y="60" width="200" height="64" rx="6"/>
+<text class="t" x="310.0" y="82" text-anchor="middle">Public site</text>
+<text class="s mono" x="310.0" y="98" text-anchor="middle">index.html · js/hit.js</text>
+<text class="s mono" x="310.0" y="111" text-anchor="middle">path, referrer, template</text>
+<rect class="node" x="470" y="60" width="200" height="64" rx="6"/>
+<text class="t" x="570.0" y="82" text-anchor="middle">pageHit</text>
+<text class="s" x="570.0" y="98" text-anchor="middle">HTTPS function</text>
+<text class="s" x="570.0" y="111" text-anchor="middle">hashes address + browser + day</text>
+<rect class="node" x="730" y="60" width="220" height="64" rx="6"/>
+<text class="t" x="840.0" y="82" text-anchor="middle">traffic/{day}</text>
+<text class="s mono" x="840.0" y="98" text-anchor="middle">views, pages, referrers, devices</text>
+<text class="s mono" x="840.0" y="111" text-anchor="middle">visitor hash only, no address</text>
+<polyline class="e dim" points="144,92 210,92" marker-end="url(#ah)"/>
+<text class="l" x="177" y="86" text-anchor="middle">opens</text>
+<polyline class="e dim" points="410,92 470,92" marker-end="url(#ah)"/>
+<text class="l" x="440" y="86" text-anchor="middle">POST</text>
+<polyline class="e dim" points="670,92 730,92" marker-end="url(#ah)"/>
+<text class="l" x="700" y="86" text-anchor="middle">counts</text>
+<rect class="node" x="210" y="160" width="200" height="76" rx="6"/>
+<text class="t" x="310.0" y="182" text-anchor="middle">Contact form</text>
+<text class="s mono" x="310.0" y="198" text-anchor="middle">js/request.js</text>
+<text class="s mono" x="310.0" y="211" text-anchor="middle">name, email, phone, needs,</text>
+<text class="s mono" x="310.0" y="224" text-anchor="middle">insurance, message</text>
+<rect class="node" x="470" y="160" width="200" height="64" rx="6"/>
+<text class="t" x="570.0" y="182" text-anchor="middle">consultationRequest</text>
+<text class="s" x="570.0" y="198" text-anchor="middle">HTTPS function</text>
+<text class="s" x="570.0" y="211" text-anchor="middle">validates, rate-limits, honeypot</text>
+<rect class="node" x="730" y="160" width="220" height="64" rx="6"/>
+<text class="t" x="840.0" y="182" text-anchor="middle">requests/{id}</text>
+<text class="s mono" x="840.0" y="198" text-anchor="middle">full submission + status, notes</text>
+<text class="s mono" x="840.0" y="211" text-anchor="middle">ratelimits/: counters only</text>
+<rect class="node" x="730" y="240" width="220" height="44" rx="6"/>
+<text class="t" x="840.0" y="262" text-anchor="middle">Secret Manager</text>
+<text class="s mono" x="840.0" y="278" text-anchor="middle">GMAIL_APP_PASSWORD</text>
+<rect class="node" x="1182" y="160" width="126" height="64" rx="6"/>
+<text class="t" x="1245.0" y="182" text-anchor="middle">Gmail (consumer)</text>
+<text class="s" x="1245.0" y="198" text-anchor="middle">michswo@gmail.com</text>
+<text class="s" x="1245.0" y="211" text-anchor="middle">sends and receives</text>
+<polyline class="e pii" points="144,192 210,192" marker-end="url(#ah)"/>
+<text class="l" x="177" y="186" text-anchor="middle">submits</text>
+<polyline class="e pii" points="410,192 470,192" marker-end="url(#ah)"/>
+<text class="l" x="440" y="186" text-anchor="middle">POST</text>
+<polyline class="e pii" points="670,192 730,192" marker-end="url(#ah)"/>
+<text class="l" x="700" y="186" text-anchor="middle">stores</text>
+<polyline class="e dim" points="730,262 570,262 570,224" marker-end="url(#ah)"/>
+<text class="l" x="650" y="276" text-anchor="middle">app password</text>
+<polyline class="e pii" points="570,160 570,142 1245,142 1245,160" marker-end="url(#ah)"/>
+<text class="l" x="900" y="136" text-anchor="middle">SMTP — the email carries the same fields</text>
+<rect class="node" x="210" y="340" width="200" height="64" rx="6"/>
+<text class="t" x="310.0" y="362" text-anchor="middle">Client portal</text>
+<text class="s mono" x="310.0" y="378" text-anchor="middle">portal/portal.js</text>
+<text class="s mono" x="310.0" y="391" text-anchor="middle">pseudonym, questionnaires</text>
+<rect class="node" x="470" y="340" width="200" height="64" rx="6"/>
+<text class="t" x="570.0" y="362" text-anchor="middle">bootstrap</text>
+<text class="s" x="570.0" y="378" text-anchor="middle">callable function</text>
+<text class="s" x="570.0" y="391" text-anchor="middle">draws pseudonym · sets staff claim</text>
+<rect class="node" x="730" y="340" width="220" height="64" rx="6"/>
+<text class="t" x="840.0" y="362" text-anchor="middle">clients/{uid} · aliases/</text>
+<text class="s mono" x="840.0" y="378" text-anchor="middle">pseudonym, status, couple, assigned</text>
+<text class="s mono" x="840.0" y="391" text-anchor="middle">no name, no email</text>
+<rect class="node" x="730" y="420" width="220" height="64" rx="6"/>
+<text class="t" x="840.0" y="442" text-anchor="middle">questionnaires/ · responses/</text>
+<text class="s mono" x="840.0" y="458" text-anchor="middle">definitions (read) · answers (write)</text>
+<text class="s mono" x="840.0" y="471" text-anchor="middle">responses carry uid + pseudonym</text>
+<rect class="node warn" x="990" y="340" width="150" height="64" rx="6"/>
+<text class="t" x="1065.0" y="362" text-anchor="middle">Firebase Auth</text>
+<text class="s" x="1065.0" y="378" text-anchor="middle">Google identity:</text>
+<text class="s" x="1065.0" y="391" text-anchor="middle">uid, email, name</text>
+<polyline class="e pii" points="144,372 210,372" marker-end="url(#ah)"/>
+<text class="l" x="177" y="366" text-anchor="middle">signs in</text>
+<polyline class="e pii" points="310,340 310,318 1065,318 1065,340" marker-end="url(#ah)"/>
+<text class="l" x="690" y="312" text-anchor="middle">Google sign-in popup → ID token back to the page</text>
+<polyline class="e pii" points="410,372 470,372" marker-end="url(#ah)"/>
+<text class="l" x="440" y="366" text-anchor="middle">ID token</text>
+<polyline class="e" points="670,372 730,372" marker-end="url(#ah)"/>
+<text class="l" x="700" y="366" text-anchor="middle">creates</text>
+<polyline class="e dim" points="570,404 570,416 1065,416 1065,404" marker-end="url(#ah)"/>
+<text class="l" x="1140" y="432" text-anchor="end">staff claim for STAFF_EMAILS</text>
+<polyline class="e pii" points="310,404 310,452 730,452" marker-end="url(#ah)"/>
+<text class="l" x="520" y="446" text-anchor="middle">Firestore SDK · rules: own documents only</text>
+<rect class="node" x="210" y="540" width="200" height="64" rx="6"/>
+<text class="t" x="310.0" y="562" text-anchor="middle">Practice dashboard</text>
+<text class="s mono" x="310.0" y="578" text-anchor="middle">admin/admin.js</text>
+<text class="s mono" x="310.0" y="591" text-anchor="middle">requests, clients, traffic, audit</text>
+<rect class="node" x="470" y="540" width="200" height="64" rx="6"/>
+<text class="t" x="570.0" y="562" text-anchor="middle">Identity look-up</text>
+<text class="s" x="570.0" y="578" text-anchor="middle">listClientAccounts · clientIdentity</text>
+<text class="s" x="570.0" y="591" text-anchor="middle">staff only · every call writes audit/</text>
+<rect class="node" x="730" y="540" width="220" height="64" rx="6"/>
+<text class="t" x="840.0" y="562" text-anchor="middle">requests · clients · traffic</text>
+<text class="s mono" x="840.0" y="578" text-anchor="middle">questionnaires · audit</text>
+<text class="s mono" x="840.0" y="591" text-anchor="middle">rules: staff claim required</text>
+<polyline class="e pii" points="144,572 210,572" marker-end="url(#ah)"/>
+<text class="l" x="177" y="566" text-anchor="middle">signs in</text>
+<polyline class="e pii" points="310,540 310,494 1045,494 1045,404" marker-end="url(#ah)"/>
+<text class="l" x="680" y="488" text-anchor="middle">Google sign-in · token carries the staff claim</text>
+<polyline class="e pii" points="570,540 570,508 1085,508 1085,404" marker-end="url(#ah)"/>
+<text class="l" x="830" y="522" text-anchor="middle">getUser(uid) → sign-in email shown beside the pseudonym</text>
+<polyline class="e pii" points="410,572 470,572" marker-end="url(#ah)"/>
+<text class="l" x="440" y="566" text-anchor="middle">callable</text>
+<polyline class="e" points="670,572 730,572" marker-end="url(#ah)"/>
+<text class="l" x="700" y="566" text-anchor="middle">audit/</text>
+<polyline class="e pii" points="310,604 310,628 840,628 840,604" marker-end="url(#ah)"/>
+<text class="l" x="575" y="644" text-anchor="middle">Firestore SDK with staff token: reads all, updates status, notes, couples, assignments</text>
+  </svg>
+  </div>
+  <div class="legend">
+    <span><i class="sw pii"></i>carries personal or clinical information</span>
+    <span><i class="sw"></i>carries data, nothing identifying</span>
+    <span><i class="sw dim"></i>control or anonymous counts</span>
+    <span><i class="sw warn"></i>not on the Google Cloud BAA list today</span>
+  </div>
+  <figcaption>Where information moves today. Left to right: the person, the page they use (served as static files), the function or SDK call, and the store. Blue arrows are the only paths that carry a name, contact detail, identity or answer. Functions run in us-east4; Firestore is multi-region nam5.</figcaption>
+</figure>
+
+<section>
+  <h2>What is stored where</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Store</th><th>Contents</th><th>Where · who can read</th><th>Personal?</th></tr></thead>
+    <tbody><tr><td><code>requests/{id}</code></td><td>Name, email, phone, what they are looking for, insurance, message, page, time; status and notes added by staff</td><td>Firestore · staff only</td><td>Yes — personal, and health-adjacent</td></tr>
+<tr><td><code>ratelimits/{ip·hour}</code></td><td>Counters per address and hour, and per day; expire naturally</td><td>Firestore · functions only</td><td>Address only, short-lived</td></tr>
+<tr><td><code>traffic/{day} + visitors/</code></td><td>Views, pages, referrers, template, device class; a salted hash per visitor per day</td><td>Firestore · staff read</td><td>No — nothing identifies a person</td></tr>
+<tr><td><code>Firebase Authentication</code></td><td>Google uid, email, display name, last sign-in — for clients and staff</td><td>Auth · functions and the signed-in user</td><td>Yes — identity</td></tr>
+<tr><td><code>clients/{uid} · aliases/</code></td><td>Pseudonym, status, couple, assigned questionnaires, next appointment, focus, private note</td><td>Firestore · own + staff</td><td>Clinical, keyed by uid, no name</td></tr>
+<tr><td><code>questionnaires/{id}</code></td><td>Instrument definitions (items, scale, scoring)</td><td>Firestore · any signed-in user</td><td>No</td></tr>
+<tr><td><code>responses/{uid}_{qid}</code></td><td>Answers, score, pseudonym, timestamps</td><td>Firestore · own + staff</td><td>Clinical, keyed by uid</td></tr>
+<tr><td><code>audit/{id}</code></td><td>Who looked up which pseudonym, when</td><td>Firestore · staff read</td><td>Staff email + client uid</td></tr>
+<tr><td><code>Gmail inbox (michswo@gmail.com)</code></td><td>One email per consultation request with the full submission</td><td>Google consumer Gmail — no BAA</td><td>Yes — same as requests/</td></tr>
+<tr><td><code>Secret Manager</code></td><td>GMAIL_APP_PASSWORD</td><td>Google Cloud · functions only</td><td>Credential</td></tr>
+<tr><td><code>functions/.env (your Mac)</code></td><td>GMAIL_USER, NOTIFY_TO, STAFF_EMAILS, TRAFFIC_SALT — baked into the functions at deploy</td><td>Local file, not in git</td><td>Config</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<section class="cols">
+  <div class="card">
+    <h2>What never leaves the browser or is never kept</h2>
+    <ul>
+      <li>The visitor's address: <code>pageHit</code> hashes it with the browser string, the day and a server-side salt, keeps the hash for that day's unique count, and discards the address. The rate limiter keeps a per-address counter for an hour.</li>
+      <li>Cookies: none on the public site, the portal or the dashboard. Firebase Auth keeps its session in the browser's own storage.</li>
+      <li>Client names in clinical data: <code>clients/</code> and <code>responses/</code> hold the pseudonym and the uid; the name and email exist only in Firebase Authentication and appear in the dashboard through an audited function call.</li>
+      <li>Nothing goes to a third-party analytics or email-marketing service.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Outside the BAA today <span class="tag">to close</span></h2>
+    <ul>
+      <li><strong>Firebase Authentication</strong> holds client identities but is not on Google's covered-products list; <strong>Identity Platform</strong> is. One-click upgrade in the Firebase console, no code change.</li>
+      <li><strong>Gmail (consumer)</strong> receives the full consultation request. Either reduce the email to a bare "new request from [name]" ping, or send through an account with a BAA (Google Workspace) or a transactional service on the practice domain.</li>
+      <li><strong>The BAA itself</strong> is not yet accepted on project <code>davidsteinberg-site</code>. Firestore, Cloud Run functions, Secret Manager, Cloud Logging and Build are covered once it is.</li>
+      <li><strong>Hosting</strong> (Firebase Hosting, GitHub Pages) is not covered and does not need to be: it serves the pages; no personal data passes through it.</li>
+    </ul>
+  </div>
+</section>
+
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1040 300" role="img" aria-label="Deployment paths: the Mac pushes to GitHub, which builds GitHub Pages; firebase deploy from the Mac publishes Hosting, the functions and the Firestore rules; the design artifact shows the same files." xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <rect class="who" x="20" y="40" width="180" height="64" rx="6"/>
+<text class="t" x="110.0" y="62" text-anchor="middle">Your Mac</text>
+<text class="s mono" x="110.0" y="78" text-anchor="middle">~/Documents/davidsteinberg-site</text>
+<text class="s mono" x="110.0" y="91" text-anchor="middle">backend/functions/.env (not in git)</text>
+<rect class="node" x="300" y="40" width="170" height="64" rx="6"/>
+<text class="t" x="385.0" y="62" text-anchor="middle">GitHub</text>
+<text class="s mono" x="385.0" y="78" text-anchor="middle">MSwoboda/davidsteinberg-site</text>
+<text class="s mono" x="385.0" y="91" text-anchor="middle">public repo</text>
+<rect class="node" x="570" y="20" width="190" height="48" rx="6"/>
+<text class="t" x="665.0" y="42" text-anchor="middle">GitHub Pages</text>
+<text class="s mono" x="665.0" y="58" text-anchor="middle">mswoboda.github.io/davidsteinberg-site</text>
+<rect class="node" x="570" y="90" width="190" height="48" rx="6"/>
+<text class="t" x="665.0" y="112" text-anchor="middle">Firebase Hosting</text>
+<text class="s mono" x="665.0" y="128" text-anchor="middle">davidsteinberg-site.web.app</text>
+<rect class="node" x="570" y="160" width="190" height="48" rx="6"/>
+<text class="t" x="665.0" y="182" text-anchor="middle">Cloud Run functions</text>
+<text class="s mono" x="665.0" y="198" text-anchor="middle">5 functions · .env baked in at deploy</text>
+<rect class="node" x="570" y="230" width="190" height="48" rx="6"/>
+<text class="t" x="665.0" y="252" text-anchor="middle">Firestore rules + indexes</text>
+<text class="s mono" x="665.0" y="268" text-anchor="middle">backend/firestore.rules</text>
+<rect class="node dim" x="850" y="90" width="170" height="48" rx="6"/>
+<text class="t" x="935.0" y="112" text-anchor="middle">Design artifact</text>
+<text class="s" x="935.0" y="128" text-anchor="middle">claude.ai — all three concepts</text>
+<polyline class="e" points="200,72 300,72" marker-end="url(#ah2)"/>
+<text class="l" x="250" y="66" text-anchor="middle">git push</text>
+<polyline class="e dim" points="470,60 520,60 520,44 570,44" marker-end="url(#ah2)"/>
+<text class="l" x="520" y="36" text-anchor="middle">Pages build</text>
+<polyline class="e" points="200,86 260,86 260,114 570,114" marker-end="url(#ah2)"/>
+<text class="l" x="415" y="108" text-anchor="middle">firebase deploy --only hosting</text>
+<polyline class="e" points="260,114 260,184 570,184" marker-end="url(#ah2)"/>
+<text class="l" x="415" y="178" text-anchor="middle">--only functions</text>
+<polyline class="e" points="260,184 260,254 570,254" marker-end="url(#ah2)"/>
+<text class="l" x="415" y="248" text-anchor="middle">--only firestore</text>
+<polyline class="e dim" points="760,114 850,114" marker-end="url(#ah2)"/>
+<text class="l" x="805" y="108" text-anchor="middle">same files</text>
+  </svg>
+  </div>
+  <figcaption>How code and configuration get out. Nothing here carries client data; <code>.env</code> (addresses, staff list, traffic salt) lives only on the Mac and is baked into the functions at deploy time, and the Gmail app password lives only in Secret Manager.</figcaption>
+</figure>
+</main>

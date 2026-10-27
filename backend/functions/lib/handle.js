@@ -2,7 +2,8 @@
 /* The consultation-request handler, free of any Google SDK so it can be tested with plain objects.
    handle(input, deps) -> { status, body }
    input: { method, body, ip, userAgent, origin }
-   deps:  { db, sendMail, now } — db is a Firestore-like object (collection().doc().get/set/add), sendMail(msg) -> Promise */
+   deps:  { db, sendMail, now, detail } — db is a Firestore-like object (collection().doc().get/set/add), sendMail(msg) -> Promise,
+          detail 'full' | 'ping' picks the email body (NOTIFY_DETAIL) */
 
 const FIELDS = {
   name: 120, email: 200, phone: 40, message: 2000, page: 300,
@@ -57,31 +58,82 @@ async function overLimit(db, ip, now) {
   return false;
 }
 
-function emailText(r, meta) {
+/* ---------- the notification email ----------
+   detail = 'full' (default): the whole submission, styled like the site.
+   detail = 'ping': name and a dashboard link only — for when the inbox is outside the BAA. */
+const DASHBOARD = 'https://davidsteinberg-site.web.app/admin/#requests';
+function when(iso) {
+  try {
+    return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+  } catch (e) { return iso; }
+}
+function emailText(r, meta, detail = 'full') {
+  if (detail === 'ping') return [`New consultation request from ${r.name}.`, '', `Open it in the dashboard: ${DASHBOARD}`, '', `Received ${when(meta.received)} · id ${meta.id}`].join('\n');
   const line = (k, v) => `${k}: ${v || '—'}`;
   return [
-    'New consultation request from the website.', '',
-    line('Name', r.name), line('Email', r.email), line('Phone', r.phone), '',
+    `New consultation request from ${r.name}`, '',
+    line('Email', r.email), line('Phone', r.phone), '',
     line('Looking for', r.modality.join(', ')), line('How to meet', r.mode.join(', ')), line('Insurance', r.insurance.join(', ')), '',
     'Message:', r.message || '—', '',
-    `Received ${meta.received} · from ${r.page || 'the site'}`,
-    `Request id ${meta.id}`,
+    `Received ${when(meta.received)} · from ${r.page || 'the site'} · id ${meta.id}`,
+    `Dashboard: ${DASHBOARD}`,
   ].join('\n');
 }
-
-function emailHtml(r, meta) {
+function emailHtml(r, meta, detail = 'full') {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const row = (k, v) => `<tr><td style="padding:6px 12px 6px 0;color:#667;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 0">${v ? esc(v) : '—'}</td></tr>`;
-  return `<div style="font:15px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1d2330;max-width:560px">
-  <p style="margin:0 0 12px;font-size:17px"><strong>New consultation request</strong></p>
-  <table style="border-collapse:collapse">
-    ${row('Name', r.name)}${row('Email', `<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`)}${row('Phone', `<a href="tel:${esc(r.phone.replace(/[^\d+]/g, ''))}">${esc(r.phone)}</a>`)}
-    ${row('Looking for', r.modality.join(', '))}${row('How to meet', r.mode.join(', '))}${row('Insurance', r.insurance.join(', '))}
-  </table>
-  <p style="margin:14px 0 4px;color:#667">Message</p>
-  <p style="margin:0;white-space:pre-wrap">${r.message ? esc(r.message) : '—'}</p>
-  <p style="margin:18px 0 0;font-size:12px;color:#889">Received ${esc(meta.received)} · ${esc(r.page || 'the site')} · id ${esc(meta.id)}</p>
-</div>`;
+  const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+  const navy = '#1f2f4d', ink = '#1d2330', muted = '#6b7280', line = '#e4e0d6', paper = '#f7f5f0', cream = '#fbfaf7';
+  const pill = v => `<span style="display:inline-block;${F};font-size:13px;color:${navy};background:#eaeef5;border:1px solid #d5dce9;border-radius:999px;padding:3px 10px;margin:0 6px 6px 0">${esc(v)}</span>`;
+  const pills = arr => arr.length ? arr.map(pill).join('') : `<span style="color:${muted}">—</span>`;
+  const row = (k, vHtml) => `<tr><td style="${F};font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:${muted};padding:10px 16px 10px 0;white-space:nowrap;vertical-align:top;width:110px">${k}</td><td style="${F};font-size:15px;color:${ink};padding:8px 0;vertical-align:top">${vHtml}</td></tr>`;
+  const sep = `<tr><td colspan="2" style="border-top:1px solid ${line};padding:0;height:1px;line-height:1px;font-size:1px">&nbsp;</td></tr>`;
+  const btn = (href, label, primary) => `<a href="${esc(href)}" style="display:inline-block;${F};font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;padding:10px 18px;margin:0 8px 8px 0;${primary ? `background:${navy};color:#ffffff` : `color:${navy};border:1px solid ${navy}`}">${label}</a>`;
+  const tel = r.phone.replace(/[^\d+]/g, '');
+  const header = `
+    <tr><td style="background:${navy};padding:18px 28px">
+      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+        <td style="width:34px;height:34px;background:#ffffff;border-radius:7px;text-align:center;${F};font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${navy};font-weight:600">DS</td>
+        <td style="padding-left:12px;${F};font-size:15px;color:#ffffff"><span style="font-family:Georgia,'Times New Roman',serif;font-size:17px">David Steinberg</span><span style="color:#b9c4d8">, PhD, LCSW</span><br><span style="font-size:12px;color:#b9c4d8;letter-spacing:.04em">davidsteinberg.com · consultation request</span></td>
+      </tr></table>
+    </td></tr>`;
+  const footer = `
+    <tr><td style="padding:14px 28px 22px;${F};font-size:12px;color:${muted};line-height:1.6">
+      Received ${esc(when(meta.received))}${r.page ? ` · from ${esc(r.page)}` : ''} · request <span style="font-family:Menlo,Consolas,monospace">${esc(meta.id)}</span><br>
+      Sent by the website's contact form. Replying to this email replies to ${esc(r.name)}.
+    </td></tr>`;
+  const body = detail === 'ping'
+    ? `<tr><td style="padding:26px 28px 8px">
+        <p style="margin:0 0 6px;${F};font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:${muted}">New consultation request</p>
+        <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;color:${ink}">${esc(r.name)}</p>
+        <p style="margin:0 0 20px;${F};font-size:15px;color:${ink}">The details are in the dashboard.</p>
+        ${btn(DASHBOARD, 'Open in dashboard', true)}
+      </td></tr>`
+    : `<tr><td style="padding:26px 28px 8px">
+        <p style="margin:0 0 6px;${F};font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:${muted}">New consultation request</p>
+        <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;color:${ink}">${esc(r.name)}</p>
+        ${btn(`mailto:${r.email}`, 'Reply by email', true)}${tel ? btn(`tel:${tel}`, `Call ${esc(r.phone)}`, false) : ''}${btn(DASHBOARD, 'Open in dashboard', false)}
+      </td></tr>
+      <tr><td style="padding:10px 28px 6px">
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse">
+          ${row('Email', `<a href="mailto:${esc(r.email)}" style="color:${navy}">${esc(r.email)}</a>`)}
+          ${row('Phone', tel ? `<a href="tel:${esc(tel)}" style="color:${navy}">${esc(r.phone)}</a>` : '—')}
+          ${sep}
+          ${row('Looking for', pills(r.modality))}
+          ${row('How to meet', pills(r.mode))}
+          ${row('Insurance', pills(r.insurance))}
+        </table>
+      </td></tr>
+      <tr><td style="padding:8px 28px 10px">
+        <p style="margin:0 0 8px;${F};font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:${muted}">Message</p>
+        <div style="${F};font-size:15px;line-height:1.55;color:${ink};background:${cream};border-left:3px solid ${navy};border-radius:0 8px 8px 0;padding:14px 16px;white-space:pre-wrap">${r.message ? esc(r.message) : '<span style="color:' + muted + '">No message.</span>'}</div>
+      </td></tr>`;
+  return `<!doctype html><html><body style="margin:0;padding:0;background:${paper}">
+  <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;background:${paper}"><tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid ${line};border-radius:12px;overflow:hidden">
+      ${header}${body}${footer}
+    </table>
+  </td></tr></table>
+</body></html>`;
 }
 
 async function handle(input, deps) {
@@ -112,10 +164,10 @@ async function handle(input, deps) {
   let emailed = false, emailError = '';
   try {
     await deps.sendMail({
-      subject: `Consultation request — ${r.name}`,
+      subject: deps.detail === 'ping' ? 'New consultation request' : `Consultation request — ${r.name}`,
       replyTo: `${r.name} <${r.email}>`,
-      text: emailText(r, meta),
-      html: emailHtml(r, meta),
+      text: emailText(r, meta, deps.detail),
+      html: emailHtml(r, meta, deps.detail),
     });
     emailed = true;
   } catch (e) {
@@ -126,4 +178,4 @@ async function handle(input, deps) {
   return json(200, { ok: true, id: ref.id });
 }
 
-module.exports = { handle, clean, validate, FIELDS, LISTS, RATE };
+module.exports = { handle, clean, validate, emailHtml, emailText, FIELDS, LISTS, RATE };
