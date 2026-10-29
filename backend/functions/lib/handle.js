@@ -162,8 +162,11 @@ async function handle(input, deps) {
   const meta = { id: ref.id, received };
 
   const outcome = {};
-  /* hand the submission to an outside system (LuxSci SecureForm) when one is configured */
-  if (deps.forward) {
+  /* the page may have posted the request into LuxSci SecureForm itself and reports how it went */
+  const lux = body && body.luxsci && typeof body.luxsci === 'object' ? body.luxsci : null;
+  if (lux) { outcome.forwarded = lux.ok === true; outcome.forwardError = lux.ok === true ? '' : str(lux.error, 200) || 'failed in the browser'; outcome.forwardedBy = 'browser'; }
+  /* or the backend hands it over itself when configured (needs a fixed outbound address; off by default) */
+  else if (deps.forward) {
     try { await deps.forward(r, meta); outcome.forwarded = true; outcome.forwardError = ''; }
     catch (e) { outcome.forwarded = false; outcome.forwardError = String(e && e.message || e).slice(0, 300); }
   }

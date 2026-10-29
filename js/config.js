@@ -6,5 +6,7 @@ window.SITE_CONFIG = {
   /* pageHit function: page-view counter for the dashboard. Empty = no counting. */
   /* Firebase project id: the site reads the content published from the dashboard (site/published). Empty = baked content only. */
   firebaseProject: 'davidsteinberg-site',
+  /* LuxSci SecureForm id (account-form-key from the form URL): the browser posts each request into that HIPAA form database too. Empty = off. */
+  secureFormId: '7851-496-Bx0Y',
   hitEndpoint: 'https://us-east4-davidsteinberg-site.cloudfunctions.net/pageHit'
 };
