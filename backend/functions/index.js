@@ -29,11 +29,13 @@ const GMAIL_APP_PASSWORD = defineSecret('GMAIL_APP_PASSWORD');
 const SMTP_HOST = defineString('SMTP_HOST', { default: '' });              // e.g. LuxSci's outgoing server; empty = use Gmail
 const SMTP_PORT = defineString('SMTP_PORT', { default: '465' });
 const SMTP_USER = defineString('SMTP_USER', { default: '' });              // the mailbox that sends (full address)
-const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
+/* The SMTP password is only bound (and only has to exist in Secret Manager) once SMTP_HOST is set in .env. */
+const SMTP_ON = !!(process.env.SMTP_HOST || '').trim();
+const SMTP_PASSWORD = SMTP_ON ? defineSecret('SMTP_PASSWORD') : null;
 
 function mailTransport() {
   const host = SMTP_HOST.value();
-  if (host) {
+  if (host && SMTP_PASSWORD) {
     const port = Number(SMTP_PORT.value()) || 465; const user = SMTP_USER.value();
     return { user, transport: nodemailer.createTransport({ host, port, secure: port === 465, requireTLS: port !== 465, auth: { user, pass: SMTP_PASSWORD.value() } }) };
   }
@@ -41,7 +43,7 @@ function mailTransport() {
   return { user, transport: nodemailer.createTransport({ service: 'gmail', auth: { user, pass: GMAIL_APP_PASSWORD.value() } }) };
 }
 
-exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWORD, SMTP_PASSWORD] }, async (req, res) => {
+exports.consultationRequest = onRequest({ cors: true, secrets: SMTP_PASSWORD ? [GMAIL_APP_PASSWORD, SMTP_PASSWORD] : [GMAIL_APP_PASSWORD] }, async (req, res) => {
   const { user, transport } = mailTransport();
   const to = (NOTIFY_TO.value() || user).split(',').map(s => s.trim()).filter(Boolean);
   const sendMail = msg => transport.sendMail({ from: `"davidsteinberg.com" <${user}>`, to, ...msg });
