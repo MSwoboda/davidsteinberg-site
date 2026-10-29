@@ -16,14 +16,17 @@
      SecureForm accepts a plain form POST to a URL that carries a short-lived token; its script hands the token to
      the page (document.secureform must exist with the form id at the end of its action). The post has to come from
      the visitor's own browser, so it happens here, not in the backend; the backend is then told how it went. */
-  var sfScript = null;
+  var sfScript = null, sfLoadedAt = 0, MIN_AGE = 10000;   // SecureForm rejects a post made within a few seconds of issuing the token (bot check)
   function loadSecureForm(id) {
     if (sfScript) return sfScript;
-    sfScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://secureform.luxsci.com/intranet/php/secureform.php?v=1&c=' + encodeURIComponent(id) + '&f=secureform'; s.onload = res; s.onerror = function () { sfScript = null; rej(new Error('SecureForm script failed to load')); }; document.head.appendChild(s); });
+    sfScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://secureform.luxsci.com/intranet/php/secureform.php?v=1&c=' + encodeURIComponent(id) + '&f=secureform'; s.onload = function () { sfLoadedAt = Date.now(); res(); }; s.onerror = function () { sfScript = null; rej(new Error('SecureForm script failed to load')); }; document.head.appendChild(s); });
     return sfScript;
   }
   function sendToSecureForm(id, p) {
     return loadSecureForm(id).then(function () {
+      var wait = MIN_AGE - (Date.now() - sfLoadedAt);
+      return wait > 0 ? new Promise(function (res) { setTimeout(res, wait); }) : null;
+    }).then(function () {
       var f = document.secureform || document.createElement('form'); f.name = 'secureform'; f.method = 'post'; f.style.display = 'none';
       f.innerHTML = ''; f.action = 'https://secureform.luxsci.com/perl/post/' + id;
       var add = function (n, v) { var i = document.createElement('input'); i.name = n; i.value = v; f.appendChild(i); };
@@ -37,11 +40,10 @@
       return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body }).then(function (r) { if (!r.ok) throw new Error('SecureForm ' + r.status); return true; });
     });
   }
-  /* warm the token script once the visitor reaches the form */
+  /* fetch the token early, so it is old enough by the time a visitor has filled in the form */
   if (window.SITE_CONFIG && window.SITE_CONFIG.secureFormId) {
     var warm = function () { loadSecureForm(window.SITE_CONFIG.secureFormId).catch(function () {}); };
-    var f0 = document.querySelector('.consult-form, #consult-form, form[data-consult]');
-    if (f0) f0.addEventListener('focusin', warm, { once: true }); else window.addEventListener('load', warm);
+    if (document.readyState === 'complete') setTimeout(warm, 1500); else window.addEventListener('load', function () { setTimeout(warm, 1500); });
   }
 
   window.sendConsultRequest = function (form) {
