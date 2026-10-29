@@ -193,7 +193,8 @@ function secureFormForwarder(formId, fetchFn = fetch) {
   const base = 'https://secureform.luxsci.com';
   return async function forward(r) {
     const js = await (await fetchFn(`${base}/intranet/php/secureform.php?v=1&c=${formId}&f=secureform`, { headers: { 'User-Agent': 'davidsteinberg.com form relay' } })).text();
-    const m = js.match(new RegExp(`"(\\d+)"\\s*\\+\\s*":"\\s*\\+\\s*"${formId.replace(/[-]/g, '\\-')}"\\s*\\+\\s*":(\\d+):"\\s*\\+\\s*"([0-9a-f]{64})"`));
+    /* the script sets f.action = __sff + "/" + "1" + ":" + "<formId>" + ":<issued>:<64 hex>:" + t */
+    const m = js.match(/"(\d+)"\s*\+\s*":"\s*\+\s*"[\w-]+"\s*\+\s*":(\d+):([0-9a-f]{64}):"/);
     if (!m) throw new Error('SecureForm token not found');
     const token = `${m[1]}:${formId}:${m[2]}:${m[3]}:${Math.floor(Date.now() / 1000)}`;
     const extras = [r.modality.length ? `Looking for: ${r.modality.join(', ')}` : '', r.mode.length ? `How to meet: ${r.mode.join(', ')}` : ''].filter(Boolean).join('\n');

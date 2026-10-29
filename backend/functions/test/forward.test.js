@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'); const assert = require('node:assert');
 const { secureFormForwarder, handle } = require('../lib/handle');
-const SCRIPT = 'function secureform_submit() { f.action = __sff + "/" + "1" + ":" + "7851-496-Bx0Y" + ":1793280922:" + "bb70249e25e1f1e1056d43a69d72f69c9916e96d700ecb646cc06901f07969a7" + ":" + t; return true; }';
+const SCRIPT = 'var __sff = null;\nfunction secureform_submit() {\n\tvar t = new Date();\n\tt = parseInt(t.getTime() / 1000);\n\tf.action = __sff + "/" + "1" + ":" + "7851-496-Bx0Y" + ":1793280922:bb70249e25e1f1e1056d43a69d72f69c9916e96d700ecb646cc06901f07969a7:" + t;\n\treturn true;\n\t};';
 test('SecureForm forwarder reads the token and posts the fields', async () => {
   const calls = [];
   const fetchFn = async (url, opts) => { calls.push({ url, opts }); if (url.includes('secureform.php')) return { ok: true, status: 200, text: async () => SCRIPT }; return { ok: true, status: 200, text: async () => 'https://davidsteinberg.com/thanks\n' }; };
