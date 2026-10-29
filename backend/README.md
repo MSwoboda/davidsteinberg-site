@@ -14,11 +14,12 @@ form (browser) ──POST JSON──▶ consultationRequest (Cloud Function, us-
 1. **Google Cloud project.** In the [Firebase console](https://console.firebase.google.com) add a project (name it e.g. `davidsteinberg-site`). Upgrade it to the **Blaze** plan (pay as you go — a card is required, the bill stays at $0 at this traffic). Enable **Firestore** (production mode, region `us-east4` or `nam5`).
 2. **Gmail app password** for the sending account (for now `michswo@gmail.com`): Google Account → Security → 2-Step Verification must be on → App passwords → create one named "davidsteinberg.com form". Copy the 16-character password.
 3. **Tools, once:** `npm install -g firebase-tools`, then `firebase login`.
-4. From the repo root (`firebase.json` and `.firebaserc` live there; functions, rules and hosting are all configured in it):
+4. In this folder:
    ```sh
+   cd backend
    # point at your project id (replace the id if you named it differently)
    sed -i '' 's/davidsteinberg-site/YOUR_PROJECT_ID/' .firebaserc     # macOS sed; on Linux drop the ''
-   cd backend/functions && npm install && npm test && cd ../..
+   cd functions && npm install && npm test && cd ..
    # functions/.env holds GMAIL_USER and NOTIFY_TO (plain text, not secret) — edit if the addresses change
    firebase functions:secrets:set GMAIL_APP_PASSWORD   # the 16-character app password (or create the secret in the Cloud Console → Secret Manager)
    firebase deploy --only functions,firestore
@@ -27,7 +28,15 @@ form (browser) ──POST JSON──▶ consultationRequest (Cloud Function, us-
 5. **Tell the site.** Put that URL in `js/config.js` (`formEndpoint`), commit, push. Both forms use it. While it is empty the forms run in prototype mode: they show the thank-you panel and send nothing.
 6. **Test** by sending a request from the live site. The email arrives from "davidsteinberg.com <michswo@gmail.com>" with Reply-To set to the visitor, and the request appears in the Firebase console under Firestore → `requests`.
 
-To move to David's address later: change `NOTIFY_TO` in `functions/.env` (and, if he should be the sender, `GMAIL_USER` plus his own app password in the `GMAIL_APP_PASSWORD` secret), then `firebase deploy --only functions`.
+## Sending through LuxSci (or any SMTP provider) instead of Gmail
+
+LuxSci is HIPAA mail with a BAA, so the notification can go from a LuxSci mailbox to a LuxSci mailbox and Gmail is out of the
+path. In `functions/.env` set `SMTP_HOST` (LuxSci's outgoing server for the account), `SMTP_PORT` (465 for SSL, 587 for
+STARTTLS), `SMTP_USER` (the full mailbox address that sends) and `NOTIFY_TO` (where it goes, usually the same mailbox);
+put the mailbox password in Secret Manager as `SMTP_PASSWORD`; then `firebase deploy --only functions`. When `SMTP_HOST` is
+empty the function falls back to Gmail (`GMAIL_USER` + `GMAIL_APP_PASSWORD`).
+
+To change only the recipient: edit `NOTIFY_TO` and redeploy the functions.
 
 ## What the function does with a submission
 
@@ -46,7 +55,7 @@ To move to David's address later: change `NOTIFY_TO` in `functions/.env` (and, i
 
 ## Local run (optional)
 
-`firebase emulators:start --only functions,firestore` (from the repo root) with a `functions/.secret.local` file holding `GMAIL_APP_PASSWORD`, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
+`cd backend && firebase emulators:start --only functions,firestore` with a `functions/.secret.local` file holding `GMAIL_APP_PASSWORD`, then set `formEndpoint` to `http://127.0.0.1:5001/YOUR_PROJECT_ID/us-east4/consultationRequest`.
 
 ## Next step: the staff view and the client portal
 

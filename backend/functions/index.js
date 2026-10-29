@@ -1,11 +1,12 @@
 'use strict';
 /* HTTPS endpoint: POST /consultationRequest with the form as JSON.
-   Stores the request in Firestore (collection "requests") and emails the practice through Gmail.
-   Configuration:
-     functions/.env      GMAIL_USER (the Gmail / Workspace address that sends; 2-step verification on)
-                         NOTIFY_TO  (where requests go; comma-separated for several; defaults to GMAIL_USER)
-     secret              GMAIL_APP_PASSWORD — an app password for GMAIL_USER (Google Account → Security → App passwords),
-                         stored in Secret Manager: `firebase functions:secrets:set GMAIL_APP_PASSWORD` or the Cloud Console */
+   Stores the request in Firestore (collection "requests") and emails the practice.
+   Mail goes out through one of two transports, chosen by what is configured:
+     SMTP (LuxSci or any other provider)   functions/.env  SMTP_HOST, SMTP_PORT (465 = SSL, 587 = STARTTLS), SMTP_USER
+                                          secret          SMTP_PASSWORD
+     Gmail (fallback when SMTP_HOST is empty)  functions/.env  GMAIL_USER ; secret GMAIL_APP_PASSWORD
+   NOTIFY_TO (functions/.env): where requests go; comma-separated for several; defaults to the sending address.
+   Secrets live in Secret Manager: `firebase functions:secrets:set SMTP_PASSWORD` (or the Cloud Console). */
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
@@ -24,10 +25,23 @@ const STAFF_EMAILS = defineString('STAFF_EMAILS', { default: '' });        // wh
 const NOTIFY_DETAIL = defineString('NOTIFY_DETAIL', { default: 'full' });  // 'full' = whole request in the email; 'ping' = name + dashboard link only
 const TRAFFIC_SALT = defineString('TRAFFIC_SALT', { default: 'change-me' }); // salts the daily visitor hash
 const GMAIL_APP_PASSWORD = defineSecret('GMAIL_APP_PASSWORD');
+const SMTP_HOST = defineString('SMTP_HOST', { default: '' });              // e.g. LuxSci's outgoing server; empty = use Gmail
+const SMTP_PORT = defineString('SMTP_PORT', { default: '465' });
+const SMTP_USER = defineString('SMTP_USER', { default: '' });              // the mailbox that sends (full address)
+const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
 
-exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWORD] }, async (req, res) => {
+function mailTransport() {
+  const host = SMTP_HOST.value();
+  if (host) {
+    const port = Number(SMTP_PORT.value()) || 465; const user = SMTP_USER.value();
+    return { user, transport: nodemailer.createTransport({ host, port, secure: port === 465, requireTLS: port !== 465, auth: { user, pass: SMTP_PASSWORD.value() } }) };
+  }
   const user = GMAIL_USER.value();
-  const transport = nodemailer.createTransport({ service: 'gmail', auth: { user, pass: GMAIL_APP_PASSWORD.value() } });
+  return { user, transport: nodemailer.createTransport({ service: 'gmail', auth: { user, pass: GMAIL_APP_PASSWORD.value() } }) };
+}
+
+exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWORD, SMTP_PASSWORD] }, async (req, res) => {
+  const { user, transport } = mailTransport();
   const to = (NOTIFY_TO.value() || user).split(',').map(s => s.trim()).filter(Boolean);
   const sendMail = msg => transport.sendMail({ from: `"davidsteinberg.com" <${user}>`, to, ...msg });
 
