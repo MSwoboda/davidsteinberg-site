@@ -161,21 +161,52 @@ async function handle(input, deps) {
   const ref = await deps.db.collection('requests').add(doc);
   const meta = { id: ref.id, received };
 
-  let emailed = false, emailError = '';
-  try {
-    await deps.sendMail({
-      subject: deps.detail === 'ping' ? 'New consultation request' : `Consultation request — ${r.name}`,
-      replyTo: `${r.name} <${r.email}>`,
-      text: emailText(r, meta, deps.detail),
-      html: emailHtml(r, meta, deps.detail),
-    });
-    emailed = true;
-  } catch (e) {
-    emailError = String(e && e.message || e).slice(0, 300);
+  const outcome = {};
+  /* hand the submission to an outside system (LuxSci SecureForm) when one is configured */
+  if (deps.forward) {
+    try { await deps.forward(r, meta); outcome.forwarded = true; outcome.forwardError = ''; }
+    catch (e) { outcome.forwarded = false; outcome.forwardError = String(e && e.message || e).slice(0, 300); }
   }
-  await ref.set({ emailed, emailError }, { merge: true });
-  // The request is saved either way; a mail failure is logged on the document, never shown as a failure to the visitor.
+  /* the notification email, unless turned off (detail 'none') */
+  if (deps.detail !== 'none' && deps.sendMail) {
+    try {
+      await deps.sendMail({
+        subject: deps.detail === 'ping' ? 'New consultation request' : `Consultation request — ${r.name}`,
+        replyTo: `${r.name} <${r.email}>`,
+        text: emailText(r, meta, deps.detail),
+        html: emailHtml(r, meta, deps.detail),
+      });
+      outcome.emailed = true; outcome.emailError = '';
+    } catch (e) { outcome.emailed = false; outcome.emailError = String(e && e.message || e).slice(0, 300); }
+  } else { outcome.emailed = null; }
+  await ref.set(outcome, { merge: true });
+  // The request is saved either way; a mail or forwarding failure is logged on the document, never shown as a failure to the visitor.
   return json(200, { ok: true, id: ref.id });
 }
 
-module.exports = { handle, clean, validate, emailHtml, emailText, FIELDS, LISTS, RATE };
+/* ---------- LuxSci SecureForm forwarder ----------
+   SecureForm takes an ordinary form POST, but to a URL that carries a signed token its script hands out per page
+   load. So: fetch that script, read the token out of it, POST the fields the LuxSci form defines. Fields not in the
+   LuxSci form (what they are looking for, how they want to meet) are folded into the question text.
+   Returns the thank-you URL SecureForm answers with. */
+function secureFormForwarder(formId, fetchFn = fetch) {
+  const base = 'https://secureform.luxsci.com';
+  return async function forward(r) {
+    const js = await (await fetchFn(`${base}/intranet/php/secureform.php?v=1&c=${formId}&f=secureform`, { headers: { 'User-Agent': 'davidsteinberg.com form relay' } })).text();
+    const m = js.match(new RegExp(`"(\\d+)"\\s*\\+\\s*":"\\s*\\+\\s*"${formId.replace(/[-]/g, '\\-')}"\\s*\\+\\s*":(\\d+):"\\s*\\+\\s*"([0-9a-f]{64})"`));
+    if (!m) throw new Error('SecureForm token not found');
+    const token = `${m[1]}:${formId}:${m[2]}:${m[3]}:${Math.floor(Date.now() / 1000)}`;
+    const extras = [r.modality.length ? `Looking for: ${r.modality.join(', ')}` : '', r.mode.length ? `How to meet: ${r.mode.join(', ')}` : ''].filter(Boolean).join('\n');
+    const body = new URLSearchParams({
+      Fullname: r.name, email: r.email, phone: r.phone, insurance: r.insurance.join(', '),
+      question: [r.message, extras, `Sent from ${r.page || 'davidsteinberg.com'}`].filter(Boolean).join('\n\n'),
+      __ajax__submit__: '1',
+    });
+    const res = await fetchFn(`${base}/perl/post/${formId}/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'davidsteinberg.com form relay', Origin: 'https://davidsteinberg.com', Referer: 'https://davidsteinberg.com/' }, body });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`SecureForm ${res.status}: ${text.slice(0, 120)}`);
+    return text.trim();
+  };
+}
+
+module.exports = { handle, clean, validate, emailHtml, emailText, secureFormForwarder, FIELDS, LISTS, RATE };

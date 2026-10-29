@@ -13,7 +13,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const { handle } = require('./lib/handle');
+const { handle, secureFormForwarder } = require('./lib/handle');
 const portal = require('./lib/portal');
 
 setGlobalOptions({ region: 'us-east4', maxInstances: 3, memory: '256MiB', timeoutSeconds: 30 });
@@ -22,7 +22,8 @@ admin.initializeApp();
 const GMAIL_USER = defineString('GMAIL_USER');
 const NOTIFY_TO = defineString('NOTIFY_TO', { default: '' });
 const STAFF_EMAILS = defineString('STAFF_EMAILS', { default: '' });        // who may open the admin dashboard
-const NOTIFY_DETAIL = defineString('NOTIFY_DETAIL', { default: 'full' });  // 'full' = whole request in the email; 'ping' = name + dashboard link only
+const NOTIFY_DETAIL = defineString('NOTIFY_DETAIL', { default: 'full' });  // 'full' = whole request in the email; 'ping' = name + dashboard link only; 'none' = no email
+const SECUREFORM_ID = defineString('SECUREFORM_ID', { default: '' });      // LuxSci SecureForm id (account-form-key, e.g. 7851-496-Bx0Y): submissions are forwarded there
 const TRAFFIC_SALT = defineString('TRAFFIC_SALT', { default: 'change-me' }); // salts the daily visitor hash
 const GMAIL_APP_PASSWORD = defineSecret('GMAIL_APP_PASSWORD');
 const SMTP_HOST = defineString('SMTP_HOST', { default: '' });              // e.g. LuxSci's outgoing server; empty = use Gmail
@@ -48,7 +49,7 @@ exports.consultationRequest = onRequest({ cors: true, secrets: [GMAIL_APP_PASSWO
   const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
   const out = await handle(
     { method: req.method, body: req.body, ip, userAgent: req.headers['user-agent'], origin: req.headers.origin },
-    { db: admin.firestore(), sendMail, detail: NOTIFY_DETAIL.value() === 'ping' ? 'ping' : 'full' },
+    { db: admin.firestore(), sendMail, detail: ['ping', 'none'].includes(NOTIFY_DETAIL.value()) ? NOTIFY_DETAIL.value() : 'full', forward: SECUREFORM_ID.value() ? secureFormForwarder(SECUREFORM_ID.value()) : null },
   );
   res.status(out.status);
   if (out.body === '') res.end(); else res.json(out.body);
