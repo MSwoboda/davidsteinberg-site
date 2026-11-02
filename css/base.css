@@ -327,6 +327,21 @@ body.page-open .site-header { position: static; }
 .tick { flex: none; padding: 14px 22px; border-radius: 999px; background: var(--bg-alt); border: 1px solid var(--line); font-size: 1.05rem; white-space: nowrap; }
 @keyframes tick { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .ticker-row { animation: none; flex-wrap: wrap; width: auto; } .ticker { mask-image: none; -webkit-mask-image: none; } }
+/* phones: the marquee is replaced by a swipeable deck (one statement per card) */
+.learn-deck { display: none; }
+@media (max-width: 700px) {
+  .ticker { display: none; }
+  .learn-deck { display: block; margin-inline: calc(-1 * clamp(16px, 4vw, 40px)); }
+  .deck-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px clamp(16px, 4vw, 40px) 12px; scrollbar-width: none; -webkit-overflow-scrolling: touch; outline: none; }
+  .deck-track::-webkit-scrollbar { display: none; }
+  .deck-card { flex: 0 0 min(82%, 340px); scroll-snap-align: center; min-height: 150px; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; padding: 18px 20px; border-radius: 18px; background: var(--bg-alt); border: 1px solid var(--line); transition: transform .35s ease, opacity .35s ease; opacity: .72; transform: scale(.96); }
+  .deck-card.is-current { opacity: 1; transform: scale(1); }
+  .deck-card .num { font-size: .78rem; letter-spacing: .08em; color: var(--muted, var(--ink-2)); font-variant-numeric: tabular-nums; }
+  .deck-card p { margin: 0; font-size: 1.15rem; line-height: 1.35; font-weight: 500; text-wrap: balance; }
+  .deck-dots { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
+  .deck-dots button { width: 7px; height: 7px; padding: 0; border-radius: 50%; border: 0; background: var(--line); cursor: pointer; transition: width .25s, background .25s; }
+  .deck-dots button[aria-selected="true"] { width: 20px; border-radius: 4px; background: var(--accent); }
+}
 .tabs-select { display: none; }
 .facts-inline { display: none; }
 @media (max-width: 900px) { .process-grid { grid-template-columns: 1fr; } .process-copy { position: static; } }

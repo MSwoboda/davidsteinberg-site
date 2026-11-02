@@ -139,6 +139,11 @@
 [data-concept="civic"] main > section:nth-of-type(even) .tick { background: var(--bg-alt); }
 [data-concept="civic"] .ticker-row.reverse .tick:nth-child(odd) { background: var(--band); color: var(--band-ink); }
 [data-concept="civic"] .ticker-row:not(.reverse) .tick:nth-child(even) { background: var(--tan); }
+[data-concept="civic"] .deck-card { background: var(--bg); border: 0; box-shadow: 0 1px 2px rgba(20,25,35,.06); }
+[data-concept="civic"] .deck-card:nth-child(3n+2) { background: var(--tan); }
+[data-concept="civic"] .deck-card:nth-child(3n) { background: var(--band); color: var(--band-ink); }
+[data-concept="civic"] .deck-card:nth-child(3n) .num { color: inherit; opacity: .75; }
+[data-concept="civic"] .deck-card p { font-family: var(--font-display); font-size: 1.35rem; font-weight: 500; }
 [data-concept="civic"] .approach-list { display: none; }
 [data-concept="civic"] .approach-list li { border-top-color: var(--line); font-size: 1.05rem; padding: 16px 0 18px 26px; position: relative; }
 [data-concept="civic"] .approach-list li::before { content: ""; position: absolute; left: 0; top: 24px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }

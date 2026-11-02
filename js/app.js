@@ -188,6 +188,23 @@
     const mk = list => list.concat(list).map(t => `<span class="tick">${esc(t)}</span>`).join('');
     rows[0].innerHTML = mk(items.slice(0, half));
     rows[1].innerHTML = mk(items.slice(half));
+    /* phones get a swipeable deck instead of the marquee: one card at a time, readable, advances on its own until touched */
+    const deck = $('.learn-deck'); if (!deck) return;
+    const track = $('.deck-track', deck), dots = $('.deck-dots', deck);
+    track.innerHTML = items.map((t, i) => `<article class="deck-card" aria-label="${i + 1} of ${items.length}"><span class="num">${pad(i + 1)}</span><p>${esc(t)}</p></article>`).join('');
+    dots.innerHTML = items.map((t, i) => `<button type="button" role="tab" aria-label="Go to ${i + 1}" aria-selected="${i === 0}"></button>`).join('');
+    const cards = $$('.deck-card', track), btns = $$('button', dots);
+    let idx = 0, timer = null, touched = false;
+    const go = (i, smooth = true) => { idx = (i + cards.length) % cards.length; track.scrollTo({ left: cards[idx].offsetLeft - track.offsetLeft, behavior: smooth ? 'smooth' : 'auto' }); };
+    const sync = () => { const x = track.scrollLeft + track.clientWidth / 2; let best = 0; cards.forEach((c, i) => { if (Math.abs(c.offsetLeft + c.offsetWidth / 2 - x) < Math.abs(cards[best].offsetLeft + cards[best].offsetWidth / 2 - x)) best = i; }); idx = best; btns.forEach((b, i) => b.setAttribute('aria-selected', i === idx)); cards.forEach((c, i) => c.classList.toggle('is-current', i === idx)); };
+    const start = () => { if (timer || touched || matchMedia('(prefers-reduced-motion: reduce)').matches) return; timer = setInterval(() => { if (!deck.offsetParent) return; go(idx + 1); }, 4200); };
+    const stop = () => { clearInterval(timer); timer = null; };
+    track.addEventListener('scroll', () => { requestAnimationFrame(sync); }, { passive: true });
+    ['pointerdown', 'touchstart', 'keydown'].forEach(ev => track.addEventListener(ev, () => { touched = true; stop(); }, { passive: true }));
+    track.addEventListener('keydown', e => { if (e.key === 'ArrowRight') go(idx + 1); if (e.key === 'ArrowLeft') go(idx - 1); });
+    btns.forEach((b, i) => b.addEventListener('click', () => { touched = true; stop(); go(i); }));
+    sync();
+    if ('IntersectionObserver' in window) new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting) start(); else stop(); }); }, { threshold: 0.4 }).observe(deck); else start();
   }
 
   /* ---------- practical ---------- */
